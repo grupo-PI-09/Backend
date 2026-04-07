@@ -1,75 +1,70 @@
 package oficina.mecanica.backendOficina.DTO;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class OrdemServicoDTOResponse {
 
-    private Integer id;
-    private String cliente;
-    private String codigoVeiculo;
-    private String observacoesAvarias;
-    private String descricaoReparo;
-    private List<String> listaPecas;
+    private Long id;
+    private Long clienteId;
+    private String nomeCliente;
+    private Long veiculoId;
+    private String placaVeiculo;
+    private Long usuarioId;
+    private LocalDateTime dataAbertura;
+    private LocalDateTime dataFechamento;
+    private String status;
+    private String problemaRelatado;
+    private String diagnostico;
+    private Integer quilometragem;
+    private BigDecimal valorEstimado;
+    private BigDecimal valorTotal;
+    private String formaPagamento;
+    private String observacoes;
 
     public OrdemServicoDTOResponse() {
     }
 
-    public OrdemServicoDTOResponse(Integer id, String cliente, String codigoVeiculo,
-                                   String observacoesAvarias, String descricaoReparo,
-                                   List<String> listaPecas) {
+    public OrdemServicoDTOResponse(Long id, Long clienteId, String nomeCliente,
+                                   Long veiculoId, String placaVeiculo,
+                                   Long usuarioId, LocalDateTime dataAbertura,
+                                   LocalDateTime dataFechamento, String status,
+                                   String problemaRelatado, String diagnostico,
+                                   Integer quilometragem, BigDecimal valorEstimado,
+                                   BigDecimal valorTotal, String formaPagamento,
+                                   String observacoes) {
         this.id = id;
-        this.cliente = cliente;
-        this.codigoVeiculo = codigoVeiculo;
-        this.observacoesAvarias = observacoesAvarias;
-        this.descricaoReparo = descricaoReparo;
-        this.listaPecas = listaPecas;
+        this.clienteId = clienteId;
+        this.nomeCliente = nomeCliente;
+        this.veiculoId = veiculoId;
+        this.placaVeiculo = placaVeiculo;
+        this.usuarioId = usuarioId;
+        this.dataAbertura = dataAbertura;
+        this.dataFechamento = dataFechamento;
+        this.status = status;
+        this.problemaRelatado = problemaRelatado;
+        this.diagnostico = diagnostico;
+        this.quilometragem = quilometragem;
+        this.valorEstimado = valorEstimado;
+        this.valorTotal = valorTotal;
+        this.formaPagamento = formaPagamento;
+        this.observacoes = observacoes;
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getCliente() {
-        return cliente;
-    }
-
-    public void setCliente(String cliente) {
-        this.cliente = cliente;
-    }
-
-    public String getCodigoVeiculo() {
-        return codigoVeiculo;
-    }
-
-    public void setCodigoVeiculo(String codigoVeiculo) {
-        this.codigoVeiculo = codigoVeiculo;
-    }
-
-    public String getObservacoesAvarias() {
-        return observacoesAvarias;
-    }
-
-    public void setObservacoesAvarias(String observacoesAvarias) {
-        this.observacoesAvarias = observacoesAvarias;
-    }
-
-    public String getDescricaoReparo() {
-        return descricaoReparo;
-    }
-
-    public void setDescricaoReparo(String descricaoReparo) {
-        this.descricaoReparo = descricaoReparo;
-    }
-
-    public List<String> getListaPecas() {
-        return listaPecas;
-    }
-
-    public void setListaPecas(List<String> listaPecas) {
-        this.listaPecas = listaPecas;
-    }
+    public Long getId() { return id; }
+    public Long getClienteId() { return clienteId; }
+    public String getNomeCliente() { return nomeCliente; }
+    public Long getVeiculoId() { return veiculoId; }
+    public String getPlacaVeiculo() { return placaVeiculo; }
+    public Long getUsuarioId() { return usuarioId; }
+    public LocalDateTime getDataAbertura() { return dataAbertura; }
+    public LocalDateTime getDataFechamento() { return dataFechamento; }
+    public String getStatus() { return status; }
+    public String getProblemaRelatado() { return problemaRelatado; }
+    public String getDiagnostico() { return diagnostico; }
+    public Integer getQuilometragem() { return quilometragem; }
+    public BigDecimal getValorEstimado() { return valorEstimado; }
+    public BigDecimal getValorTotal() { return valorTotal; }
+    public String getFormaPagamento() { return formaPagamento; }
+    public String getObservacoes() { return observacoes; }
 }

@@ -1,25 +1,55 @@
 package oficina.mecanica.backendOficina.Model;
 
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "clientes")
 public class ClienteModel {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_clientes")
     private Long id;
+
+    @Column(name = "nome_usuario", length = 50)
     private String nome;
-    private String email;
+
+    @Column(name = "dt_nascimento")
+    private LocalDate dtNascimento;
+
+    @Column(name = "telefone", length = 11)
     private String telefone;
 
-    private List<VeiculoModel> veiculos = new ArrayList<>();
+    @Column(name = "email_usuario", length = 100)
+    private String email;
+
+    @Column(name = "endereco", length = 100)
+    private String endereco;
+
+    @CreationTimestamp
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "data_cadastro")
+    private LocalDateTime dataCadastro;
+
+    @Column(name = "ativo", nullable = false)
+    private Boolean ativo = true;
 
     public ClienteModel() {
-
     }
 
-    public ClienteModel(Long id, String nome, String email, String telefone) {
+    public ClienteModel(Long id, String nome, LocalDate dtNascimento, String telefone,
+                        String email, String endereco, Boolean ativo) {
         this.id = id;
         this.nome = nome;
-        this.email = email;
+        this.dtNascimento = dtNascimento;
         this.telefone = telefone;
+        this.email = email;
+        this.endereco = endereco;
+        this.ativo = ativo;
     }
 
     public Long getId() {
@@ -38,12 +68,12 @@ public class ClienteModel {
         this.nome = nome;
     }
 
-    public String getEmail() {
-        return email;
+    public LocalDate getDtNascimento() {
+        return dtNascimento;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setDtNascimento(LocalDate dtNascimento) {
+        this.dtNascimento = dtNascimento;
     }
 
     public String getTelefone() {
@@ -54,11 +84,35 @@ public class ClienteModel {
         this.telefone = telefone;
     }
 
-    public List<VeiculoModel> getVeiculos() {
-        return veiculos;
+    public String getEmail() {
+        return email;
     }
 
-    public void setVeiculos(List<VeiculoModel> veiculos) {
-        this.veiculos = veiculos;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEndereco() {
+        return endereco;
+    }
+
+    public void setEndereco(String endereco) {
+        this.endereco = endereco;
+    }
+
+    public LocalDateTime getDataCadastro() {
+        return dataCadastro;
+    }
+
+    public void setDataCadastro(LocalDateTime dataCadastro) {
+        this.dataCadastro = dataCadastro;
+    }
+
+    public Boolean getAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
     }
 }

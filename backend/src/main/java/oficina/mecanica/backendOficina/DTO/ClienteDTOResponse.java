@@ -1,23 +1,33 @@
 package oficina.mecanica.backendOficina.DTO;
-import java.util.List;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class ClienteDTOResponse {
-    Long id;
-    String nome;
-    String email;
-    String telefone;
-    List<VeiculoDTO> veiculos;
+
+    private Long id;
+    private String nome;
+    private LocalDate dtNascimento;
+    private String telefone;
+    private String email;
+    private String endereco;
+    private Boolean ativo;
+    private LocalDateTime dataCadastro;
 
     public ClienteDTOResponse() {
-
     }
 
-    public ClienteDTOResponse(Long id, String nome, String email, String telefone, List<VeiculoDTO> veiculos) {
+    public ClienteDTOResponse(Long id, String nome, LocalDate dtNascimento,
+                              String telefone, String email, String endereco,
+                              Boolean ativo, LocalDateTime dataCadastro) {
         this.id = id;
         this.nome = nome;
-        this.email = email;
+        this.dtNascimento = dtNascimento;
         this.telefone = telefone;
-        this.veiculos = veiculos;
+        this.email = email;
+        this.endereco = endereco;
+        this.ativo = ativo;
+        this.dataCadastro = dataCadastro;
     }
 
     public Long getId() {
@@ -36,12 +46,12 @@ public class ClienteDTOResponse {
         this.nome = nome;
     }
 
-    public String getEmail() {
-        return email;
+    public LocalDate getDtNascimento() {
+        return dtNascimento;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setDtNascimento(LocalDate dtNascimento) {
+        this.dtNascimento = dtNascimento;
     }
 
     public String getTelefone() {
@@ -52,11 +62,35 @@ public class ClienteDTOResponse {
         this.telefone = telefone;
     }
 
-    public List<VeiculoDTO> getVeiculos() {
-        return veiculos;
+    public String getEmail() {
+        return email;
     }
 
-    public void setVeiculos(List<VeiculoDTO> veiculos) {
-        this.veiculos = veiculos;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEndereco() {
+        return endereco;
+    }
+
+    public void setEndereco(String endereco) {
+        this.endereco = endereco;
+    }
+
+    public Boolean getAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
+    }
+
+    public LocalDateTime getDataCadastro() {
+        return dataCadastro;
+    }
+
+    public void setDataCadastro(LocalDateTime dataCadastro) {
+        this.dataCadastro = dataCadastro;
     }
 }

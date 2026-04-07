@@ -1,51 +1,48 @@
 package oficina.mecanica.backendOficina.Controller;
 
-import oficina.mecanica.backendOficina.Model.ClienteModel;
+import oficina.mecanica.backendOficina.DTO.ClienteDTORequest;
+import oficina.mecanica.backendOficina.DTO.ClienteDTOResponse;
 import oficina.mecanica.backendOficina.Service.ClienteService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping
-
+@RequestMapping("/clientes")
 public class ClienteController {
-    private ClienteService service;
+
+    private final ClienteService service;
+
+    public ClienteController(ClienteService service) {
+        this.service = service;
+    }
 
     @GetMapping
-    public List<ClienteModel> listar(@RequestParam(required = false) String nome) {
-        if (nome != null && !nome.isEmpty()) {
-            return service.buscarPorNome(nome);
-        }
-        return service.listarTodos();
+    public ResponseEntity<List<ClienteDTOResponse>> getClientes() {
+        return ResponseEntity.ok(service.listar());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ClienteDTOResponse> getClienteById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.buscarPorId(id));
     }
 
     @PostMapping
-    @ResponseStatus
-    public ClienteModel cadastrar(@RequestBody ClienteModel request) {
-        return service.salvar(request);
+    public ResponseEntity<ClienteDTOResponse> criarCliente(@RequestBody @Valid ClienteDTORequest dto) {
+        return ResponseEntity.status(201).body(service.criar(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ClienteModel> editar(@PathVariable Long id, @RequestBody ClienteModel cliente) {
-        ClienteModel atualizado = service.atualizar(id, cliente);
-
-        if (atualizado != null) {
-            return ResponseEntity.ok(atualizado);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<ClienteDTOResponse> atualizarCliente(@PathVariable Long id,
+                                                               @RequestBody @Valid ClienteDTORequest dto) {
+        return ResponseEntity.ok(service.atualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> excluir(@PathVariable Long id) {
-        boolean excluido = service.excluir(id);
-
-        if (excluido) {
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deletarCliente(@PathVariable Long id) {
+        service.deletar(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,58 +1,30 @@
-package oficina.mecanica.backendOficina.Model;
-
-import jakarta.persistence.*;
-import org.hibernate.annotations.CreationTimestamp;
+package oficina.mecanica.backendOficina.DTO;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "veiculos")
-public class VeiculoModel {
+public class VeiculoDTOResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_veiculos")
     private Long id;
-
-    @ManyToOne //Relacionamento** 1 cliente pode ter vários veículos
-    @JoinColumn(name = "cliente_id")
-    private ClienteModel cliente;
-
-    @Column(name = "placa", length = 10)
     private String placa;
-
-    @Column(name = "modelo", length = 50)
     private String modelo;
-
-    @Column(name = "marca", length = 50)
     private String marca;
-
-    @Column(name = "ano")
     private Integer ano;
-
-    @Column(name = "quilometragem")
     private Integer quilometragem;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_combustivel")
-    private TipoCombustivel tipoCombustivel;
-
-    @Column(name = "ativo")
-    private Boolean ativo = true;
-
-    @CreationTimestamp
-    @Temporal(TemporalType.TIMESTAMP)
-    @Column(name = "data_criacao")
+    private String tipoCombustivel;
+    private Boolean ativo;
     private LocalDateTime dataCriacao;
 
-    public VeiculoModel() {
+    private Long clienteId;
+    private String nomeCliente;
+
+    public VeiculoDTOResponse() {
     }
 
-    public VeiculoModel(Long id, ClienteModel cliente, String placa, String modelo, String marca,
-                        Integer ano, Integer quilometragem, TipoCombustivel tipoCombustivel,
-                        Boolean ativo) {
+    public VeiculoDTOResponse(Long id, String placa, String modelo, String marca,
+                              Integer ano, Integer quilometragem, String tipoCombustivel,
+                              Boolean ativo, LocalDateTime dataCriacao,
+                              Long clienteId, String nomeCliente) {
         this.id = id;
-        this.cliente = cliente;
         this.placa = placa;
         this.modelo = modelo;
         this.marca = marca;
@@ -60,9 +32,9 @@ public class VeiculoModel {
         this.quilometragem = quilometragem;
         this.tipoCombustivel = tipoCombustivel;
         this.ativo = ativo;
-
-
-
+        this.dataCriacao = dataCriacao;
+        this.clienteId = clienteId;
+        this.nomeCliente = nomeCliente;
     }
 
     public Long getId() {
@@ -71,14 +43,6 @@ public class VeiculoModel {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public ClienteModel getCliente() {
-        return cliente;
-    }
-
-    public void setCliente(ClienteModel cliente) {
-        this.cliente = cliente;
     }
 
     public String getPlaca() {
@@ -121,11 +85,11 @@ public class VeiculoModel {
         this.quilometragem = quilometragem;
     }
 
-    public TipoCombustivel getTipoCombustivel() {
+    public String getTipoCombustivel() {
         return tipoCombustivel;
     }
 
-    public void setTipoCombustivel(TipoCombustivel tipoCombustivel) {
+    public void setTipoCombustivel(String tipoCombustivel) {
         this.tipoCombustivel = tipoCombustivel;
     }
 
@@ -143,5 +107,21 @@ public class VeiculoModel {
 
     public void setDataCriacao(LocalDateTime dataCriacao) {
         this.dataCriacao = dataCriacao;
+    }
+
+    public Long getClienteId() {
+        return clienteId;
+    }
+
+    public void setClienteId(Long clienteId) {
+        this.clienteId = clienteId;
+    }
+
+    public String getNomeCliente() {
+        return nomeCliente;
+    }
+
+    public void setNomeCliente(String nomeCliente) {
+        this.nomeCliente = nomeCliente;
     }
 }

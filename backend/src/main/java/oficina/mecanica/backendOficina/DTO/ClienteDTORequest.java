@@ -1,21 +1,30 @@
 package oficina.mecanica.backendOficina.DTO;
-import java.util.List;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDate;
 
 public class ClienteDTORequest {
+
+    @NotBlank(message = "Nome é obrigatório")
     private String nome;
-    private String email;
+
+    private LocalDate dtNascimento;
+
+    @NotBlank(message = "Telefone é obrigatório")
     private String telefone;
-    private List<VeiculoDTO> veiculos;
+
+    @NotBlank(message = "Email é obrigatório")
+    @Email(message = "Email inválido")
+    private String email;
+
+    @NotBlank(message = "Endereço é obrigatório")
+    private String endereco;
 
     public ClienteDTORequest() {
-
-    }
-
-    public ClienteDTORequest(String nome, String email, String telefone, List<VeiculoDTO> veiculos) {
-        this.nome = nome;
-        this.email = email;
-        this.telefone = telefone;
-        this.veiculos = veiculos;
     }
 
     public String getNome() {
@@ -26,12 +35,12 @@ public class ClienteDTORequest {
         this.nome = nome;
     }
 
-    public String getEmail() {
-        return email;
+    public LocalDate getDtNascimento() {
+        return dtNascimento;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setDtNascimento(LocalDate dtNascimento) {
+        this.dtNascimento = dtNascimento;
     }
 
     public String getTelefone() {
@@ -42,11 +51,19 @@ public class ClienteDTORequest {
         this.telefone = telefone;
     }
 
-    public List<VeiculoDTO> getVeiculos() {
-        return veiculos;
+    public String getEmail() {
+        return email;
     }
 
-    public void setVeiculos(List<VeiculoDTO> veiculos) {
-        this.veiculos = veiculos;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEndereco() {
+        return endereco;
+    }
+
+    public void setEndereco(String endereco) {
+        this.endereco = endereco;
     }
 }

@@ -1,64 +1,140 @@
 package oficina.mecanica.backendOficina.DTO;
 
-import java.util.List;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class OrdemServicoDTORequest {
 
-    private String cliente;
-    private String codigoVeiculo;
-    private String observacoesAvarias;
-    private String descricaoReparo;
-    private List<String> listaPecas;
+    @NotNull(message = "Cliente é obrigatório")
+    private Long clienteId;
+
+    @NotNull(message = "Veículo é obrigatório")
+    private Long veiculoId;
+
+    private Long usuarioId;
+
+    @NotBlank(message = "Status é obrigatório")
+    private String status;
+
+    @NotBlank(message = "Problema relatado é obrigatório")
+    private String problemaRelatado;
+
+    private String diagnostico;
+
+    @NotNull(message = "Quilometragem é obrigatória")
+    @PositiveOrZero(message = "Quilometragem inválida")
+    private Integer quilometragem;
+
+    @PositiveOrZero(message = "Valor estimado inválido")
+    private BigDecimal valorEstimado;
+
+    @PositiveOrZero(message = "Valor total inválido")
+    private BigDecimal valorTotal;
+
+    private String formaPagamento;
+    private String observacoes;
+    private LocalDateTime dataFechamento;
 
     public OrdemServicoDTORequest() {
     }
 
-    public OrdemServicoDTORequest(String cliente, String codigoVeiculo, String observacoesAvarias,
-                                  String descricaoReparo, List<String> listaPecas) {
-        this.cliente = cliente;
-        this.codigoVeiculo = codigoVeiculo;
-        this.observacoesAvarias = observacoesAvarias;
-        this.descricaoReparo = descricaoReparo;
-        this.listaPecas = listaPecas;
+    public Long getClienteId() {
+        return clienteId;
     }
 
-    public String getCliente() {
-        return cliente;
+    public void setClienteId(Long clienteId) {
+        this.clienteId = clienteId;
     }
 
-    public void setCliente(String cliente) {
-        this.cliente = cliente;
+    public Long getVeiculoId() {
+        return veiculoId;
     }
 
-    public String getCodigoVeiculo() {
-        return codigoVeiculo;
+    public void setVeiculoId(Long veiculoId) {
+        this.veiculoId = veiculoId;
     }
 
-    public void setCodigoVeiculo(String codigoVeiculo) {
-        this.codigoVeiculo = codigoVeiculo;
+    public Long getUsuarioId() {
+        return usuarioId;
     }
 
-    public String getObservacoesAvarias() {
-        return observacoesAvarias;
+    public void setUsuarioId(Long usuarioId) {
+        this.usuarioId = usuarioId;
     }
 
-    public void setObservacoesAvarias(String observacoesAvarias) {
-        this.observacoesAvarias = observacoesAvarias;
+    public String getStatus() {
+        return status;
     }
 
-    public String getDescricaoReparo() {
-        return descricaoReparo;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
-    public void setDescricaoReparo(String descricaoReparo) {
-        this.descricaoReparo = descricaoReparo;
+    public String getProblemaRelatado() {
+        return problemaRelatado;
     }
 
-    public List<String> getListaPecas() {
-        return listaPecas;
+    public void setProblemaRelatado(String problemaRelatado) {
+        this.problemaRelatado = problemaRelatado;
     }
 
-    public void setListaPecas(List<String> listaPecas) {
-        this.listaPecas = listaPecas;
+    public String getDiagnostico() {
+        return diagnostico;
+    }
+
+    public void setDiagnostico(String diagnostico) {
+        this.diagnostico = diagnostico;
+    }
+
+    public Integer getQuilometragem() {
+        return quilometragem;
+    }
+
+    public void setQuilometragem(Integer quilometragem) {
+        this.quilometragem = quilometragem;
+    }
+
+    public BigDecimal getValorEstimado() {
+        return valorEstimado;
+    }
+
+    public void setValorEstimado(BigDecimal valorEstimado) {
+        this.valorEstimado = valorEstimado;
+    }
+
+    public BigDecimal getValorTotal() {
+        return valorTotal;
+    }
+
+    public void setValorTotal(BigDecimal valorTotal) {
+        this.valorTotal = valorTotal;
+    }
+
+    public String getFormaPagamento() {
+        return formaPagamento;
+    }
+
+    public void setFormaPagamento(String formaPagamento) {
+        this.formaPagamento = formaPagamento;
+    }
+
+    public String getObservacoes() {
+        return observacoes;
+    }
+
+    public void setObservacoes(String observacoes) {
+        this.observacoes = observacoes;
+    }
+
+    public LocalDateTime getDataFechamento() {
+        return dataFechamento;
+    }
+
+    public void setDataFechamento(LocalDateTime dataFechamento) {
+        this.dataFechamento = dataFechamento;
     }
 }
