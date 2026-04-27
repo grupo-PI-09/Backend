@@ -1,6 +1,7 @@
 package oficina.mecanica.backendOficina.Model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class OrdemServicoModel {
     @Column(name = "usuario_id")
     private Long usuarioId;
 
+    @CreationTimestamp
     @Column(name = "data_abertura")
     private LocalDateTime dataAbertura;
 

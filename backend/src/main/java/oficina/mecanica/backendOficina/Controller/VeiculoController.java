@@ -1,5 +1,7 @@
 package oficina.mecanica.backendOficina.Controller;
 
+import oficina.mecanica.backendOficina.DTO.ConsultaPlacaRequest;
+import oficina.mecanica.backendOficina.DTO.ConsultaPlacaResponse;
 import oficina.mecanica.backendOficina.DTO.VeiculoDTORequest;
 import oficina.mecanica.backendOficina.DTO.VeiculoDTOResponse;
 import oficina.mecanica.backendOficina.Service.VeiculoService;
@@ -10,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/veiculos")
+@RequestMapping({"/veiculos", "/veiculo"})
 public class VeiculoController {
 
     private final VeiculoService service;
@@ -32,6 +34,11 @@ public class VeiculoController {
     @GetMapping("/cliente/{clienteId}")
     public ResponseEntity<List<VeiculoDTOResponse>> getVeiculosByCliente(@PathVariable Long clienteId) {
         return ResponseEntity.ok(service.buscarPorClienteId(clienteId));
+    }
+
+    @PostMapping("/placa")
+    public ResponseEntity<ConsultaPlacaResponse> consultarPorPlaca(@RequestBody @Valid ConsultaPlacaRequest dto) {
+        return ResponseEntity.ok(service.consultarPorPlaca(dto.getPlaca()));
     }
 
     @PostMapping
