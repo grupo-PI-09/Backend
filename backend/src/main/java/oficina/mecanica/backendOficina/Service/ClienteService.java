@@ -49,7 +49,7 @@ public class ClienteService {
         cliente.setDtNascimento(dto.getDtNascimento());
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
-        cliente.setEndereco(dto.getEndereco());
+        preencherEndereco(cliente, dto);
         cliente.setAtivo(true);
 
         ClienteModel clienteSalvo = clienteRepository.save(cliente);
@@ -64,7 +64,7 @@ public class ClienteService {
         cliente.setDtNascimento(dto.getDtNascimento());
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
-        cliente.setEndereco(dto.getEndereco());
+        preencherEndereco(cliente, dto);
 
         ClienteModel clienteAtualizado = clienteRepository.save(cliente);
         return converterParaResponse(clienteAtualizado);
@@ -86,8 +86,58 @@ public class ClienteService {
                 cliente.getTelefone(),
                 cliente.getEmail(),
                 cliente.getEndereco(),
+                cliente.getCep(),
+                cliente.getLogradouro(),
+                cliente.getNumero(),
+                cliente.getComplemento(),
+                cliente.getBairro(),
+                cliente.getCidade(),
+                cliente.getEstado(),
                 cliente.getAtivo(),
                 cliente.getDataCadastro()
         );
+    }
+
+    private void preencherEndereco(ClienteModel cliente, ClienteDTORequest dto) {
+        cliente.setCep(normalizarApenasDigitos(dto.getCep()));
+        cliente.setLogradouro(dto.getLogradouro());
+        cliente.setNumero(dto.getNumero());
+        cliente.setComplemento(dto.getComplemento());
+        cliente.setBairro(dto.getBairro());
+        cliente.setCidade(dto.getCidade());
+        cliente.setEstado(dto.getEstado() == null ? null : dto.getEstado().toUpperCase());
+        cliente.setEndereco(montarEndereco(dto));
+    }
+
+    private String montarEndereco(ClienteDTORequest dto) {
+        if (dto.getEndereco() != null && !dto.getEndereco().isBlank()) {
+            return dto.getEndereco();
+        }
+
+        StringBuilder endereco = new StringBuilder();
+        adicionarParteEndereco(endereco, dto.getLogradouro());
+        adicionarParteEndereco(endereco, dto.getNumero());
+        adicionarParteEndereco(endereco, dto.getComplemento());
+        adicionarParteEndereco(endereco, dto.getBairro());
+        adicionarParteEndereco(endereco, dto.getCidade());
+        adicionarParteEndereco(endereco, dto.getEstado());
+
+        return endereco.isEmpty() ? null : endereco.toString();
+    }
+
+    private void adicionarParteEndereco(StringBuilder endereco, String parte) {
+        if (parte == null || parte.isBlank()) {
+            return;
+        }
+
+        if (!endereco.isEmpty()) {
+            endereco.append(", ");
+        }
+
+        endereco.append(parte.trim());
+    }
+
+    private String normalizarApenasDigitos(String valor) {
+        return valor == null ? null : valor.replaceAll("\\D", "");
     }
 }
