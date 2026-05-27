@@ -12,6 +12,10 @@ public class ClienteDTORequest {
     @NotBlank(message = "Nome é obrigatório")
     private String nome;
 
+    @NotBlank(message = "CPF é obrigatório")
+    @Pattern(regexp = "^(\\d{11}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2})$", message = "CPF deve conter 11 números")
+    private String cpf;
+
     private LocalDate dtNascimento;
 
     @NotBlank(message = "Telefone é obrigatório")
@@ -49,6 +53,14 @@ public class ClienteDTORequest {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
     }
 
     public LocalDate getDtNascimento() {

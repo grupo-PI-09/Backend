@@ -46,6 +46,7 @@ public class ClienteService {
         ClienteModel cliente = new ClienteModel();
 
         cliente.setNome(dto.getNome());
+        cliente.setCpf(normalizarApenasDigitos(dto.getCpf()));
         cliente.setDtNascimento(dto.getDtNascimento());
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
@@ -61,6 +62,7 @@ public class ClienteService {
                 .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
 
         cliente.setNome(dto.getNome());
+        cliente.setCpf(normalizarApenasDigitos(dto.getCpf()));
         cliente.setDtNascimento(dto.getDtNascimento());
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
@@ -82,6 +84,7 @@ public class ClienteService {
         return new ClienteDTOResponse(
                 cliente.getId(),
                 cliente.getNome(),
+                cliente.getCpf(),
                 cliente.getDtNascimento(),
                 cliente.getTelefone(),
                 cliente.getEmail(),

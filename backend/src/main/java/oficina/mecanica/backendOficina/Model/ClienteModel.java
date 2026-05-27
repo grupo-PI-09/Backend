@@ -18,6 +18,9 @@ public class ClienteModel {
     @Column(name = "nome_usuario", length = 50)
     private String nome;
 
+    @Column(name = "cpf", length = 11, nullable = false)
+    private String cpf;
+
     @Column(name = "dt_nascimento")
     private LocalDate dtNascimento;
 
@@ -62,12 +65,13 @@ public class ClienteModel {
     public ClienteModel() {
     }
 
-    public ClienteModel(Long id, String nome, LocalDate dtNascimento, String telefone,
+    public ClienteModel(Long id, String nome, String cpf, LocalDate dtNascimento, String telefone,
                         String email, String endereco, String cep, String logradouro,
                         String numero, String complemento, String bairro, String cidade,
                         String estado, Boolean ativo) {
         this.id = id;
         this.nome = nome;
+        this.cpf = cpf;
         this.dtNascimento = dtNascimento;
         this.telefone = telefone;
         this.email = email;
@@ -96,6 +100,14 @@ public class ClienteModel {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
     }
 
     public LocalDate getDtNascimento() {

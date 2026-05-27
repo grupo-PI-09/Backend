@@ -7,6 +7,7 @@ public class ClienteDTOResponse {
 
     private Long id;
     private String nome;
+    private String cpf;
     private LocalDate dtNascimento;
     private String telefone;
     private String email;
@@ -24,7 +25,7 @@ public class ClienteDTOResponse {
     public ClienteDTOResponse() {
     }
 
-    public ClienteDTOResponse(Long id, String nome, LocalDate dtNascimento,
+    public ClienteDTOResponse(Long id, String nome, String cpf, LocalDate dtNascimento,
                               String telefone, String email, String endereco,
                               String cep, String logradouro, String numero,
                               String complemento, String bairro, String cidade,
@@ -32,6 +33,7 @@ public class ClienteDTOResponse {
                               Boolean ativo, LocalDateTime dataCadastro) {
         this.id = id;
         this.nome = nome;
+        this.cpf = cpf;
         this.dtNascimento = dtNascimento;
         this.telefone = telefone;
         this.email = email;
@@ -61,6 +63,14 @@ public class ClienteDTOResponse {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
     }
 
     public LocalDate getDtNascimento() {
