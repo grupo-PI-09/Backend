@@ -1,5 +1,6 @@
 package oficina.mecanica.backendOficina.Service;
 
+import oficina.mecanica.backendOficina.DTO.NotificacaoResultadoDTO;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTORequest;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTOResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
@@ -12,6 +13,7 @@ import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,13 +22,16 @@ public class OrdemServicoService {
     private final OrdemServicoRepository ordemServicoRepository;
     private final ClienteRepository clienteRepository;
     private final VeiculoRepository veiculoRepository;
+    private final NotificacaoService notificacaoService;
 
     public OrdemServicoService(OrdemServicoRepository ordemServicoRepository,
                                ClienteRepository clienteRepository,
-                               VeiculoRepository veiculoRepository) {
+                               VeiculoRepository veiculoRepository,
+                               NotificacaoService notificacaoService) {
         this.ordemServicoRepository = ordemServicoRepository;
         this.clienteRepository = clienteRepository;
         this.veiculoRepository = veiculoRepository;
+        this.notificacaoService = notificacaoService;
     }
 
     public List<OrdemServicoDTOResponse> listar() {
@@ -68,16 +73,7 @@ public class OrdemServicoService {
         OrdemServicoModel ordemServico = new OrdemServicoModel();
         ordemServico.setCliente(cliente);
         ordemServico.setVeiculo(veiculo);
-        ordemServico.setUsuarioId(dto.getUsuarioId());
-        ordemServico.setStatus(StatusOrdemServico.valueOf(dto.getStatus().toLowerCase()));
-        ordemServico.setProblemaRelatado(dto.getProblemaRelatado());
-        ordemServico.setDiagnostico(dto.getDiagnostico());
-        ordemServico.setQuilometragem(dto.getQuilometragem());
-        ordemServico.setValorEstimado(dto.getValorEstimado() != null ? dto.getValorEstimado() : BigDecimal.ZERO);
-        ordemServico.setValorTotal(dto.getValorTotal() != null ? dto.getValorTotal() : BigDecimal.ZERO);
-        ordemServico.setFormaPagamento(dto.getFormaPagamento());
-        ordemServico.setObservacoes(dto.getObservacoes());
-        ordemServico.setDataFechamento(dto.getDataFechamento());
+        aplicarDadosDto(ordemServico, dto);
 
         OrdemServicoModel salva = ordemServicoRepository.save(ordemServico);
         return converterParaResponse(salva);
@@ -93,10 +89,28 @@ public class OrdemServicoService {
         VeiculoModel veiculo = veiculoRepository.findById(dto.getVeiculoId())
                 .orElseThrow(() -> new RuntimeException("Veículo não encontrado"));
 
+        boolean deveNotificarFinalizacao = ordemServico.getStatus() != StatusOrdemServico.finalizada
+                && parseStatus(dto.getStatus()) == StatusOrdemServico.finalizada;
+
         ordemServico.setCliente(cliente);
         ordemServico.setVeiculo(veiculo);
+        aplicarDadosDto(ordemServico, dto);
+
+        OrdemServicoModel atualizada = ordemServicoRepository.save(ordemServico);
+        OrdemServicoDTOResponse response = converterParaResponse(atualizada);
+
+        if (deveNotificarFinalizacao) {
+            adicionarResultadoNotificacoesFinalizacao(atualizada, response);
+        }
+
+        return response;
+    }
+
+    private void aplicarDadosDto(OrdemServicoModel ordemServico, OrdemServicoDTORequest dto) {
+        StatusOrdemServico status = parseStatus(dto.getStatus());
+
         ordemServico.setUsuarioId(dto.getUsuarioId());
-        ordemServico.setStatus(StatusOrdemServico.valueOf(dto.getStatus().toLowerCase()));
+        ordemServico.setStatus(status);
         ordemServico.setProblemaRelatado(dto.getProblemaRelatado());
         ordemServico.setDiagnostico(dto.getDiagnostico());
         ordemServico.setQuilometragem(dto.getQuilometragem());
@@ -104,10 +118,34 @@ public class OrdemServicoService {
         ordemServico.setValorTotal(dto.getValorTotal() != null ? dto.getValorTotal() : BigDecimal.ZERO);
         ordemServico.setFormaPagamento(dto.getFormaPagamento());
         ordemServico.setObservacoes(dto.getObservacoes());
-        ordemServico.setDataFechamento(dto.getDataFechamento());
+        ordemServico.setDataProximaRevisao(dto.getDataProximaRevisao());
 
-        OrdemServicoModel atualizada = ordemServicoRepository.save(ordemServico);
-        return converterParaResponse(atualizada);
+        if (status == StatusOrdemServico.finalizada) {
+            ordemServico.setDataFechamento(dto.getDataFechamento() != null ? dto.getDataFechamento() : LocalDateTime.now());
+        } else {
+            ordemServico.setDataFechamento(dto.getDataFechamento());
+        }
+    }
+
+    private StatusOrdemServico parseStatus(String status) {
+        return StatusOrdemServico.valueOf(status.toLowerCase());
+    }
+
+    private void adicionarResultadoNotificacoesFinalizacao(OrdemServicoModel ordemServico,
+                                                           OrdemServicoDTOResponse response) {
+        NotificacaoResultadoDTO finalizacao = notificacaoService.enviarMensagemFinalizacao(ordemServico);
+        response.setMensagemFinalizacaoEnviada(finalizacao.isEnviada());
+        response.adicionarAviso(finalizacao.getAviso());
+
+        if (ordemServico.getDataProximaRevisao() == null) {
+            return;
+        }
+
+        NotificacaoResultadoDTO revisao = notificacaoService.agendarLembreteRevisao(ordemServico);
+        response.setLembreteRevisaoAgendado(revisao.isAgendada());
+        response.setLembreteRevisaoEnviadoImediatamente(revisao.isEnviadaImediatamente());
+        response.setDataAgendamentoRevisao(revisao.getDataAgendamento());
+        response.adicionarAviso(revisao.getAviso());
     }
 
     public void deletar(Long id) {
@@ -135,7 +173,8 @@ public class OrdemServicoService {
                 ordemServico.getValorEstimado(),
                 ordemServico.getValorTotal(),
                 ordemServico.getFormaPagamento(),
-                ordemServico.getObservacoes()
+                ordemServico.getObservacoes(),
+                ordemServico.getDataProximaRevisao()
         );
     }
 }

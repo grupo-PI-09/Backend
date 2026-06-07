@@ -2,6 +2,8 @@ package oficina.mecanica.backendOficina.DTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class OrdemServicoDTOResponse {
 
@@ -21,6 +23,12 @@ public class OrdemServicoDTOResponse {
     private BigDecimal valorTotal;
     private String formaPagamento;
     private String observacoes;
+    private LocalDateTime dataProximaRevisao;
+    private boolean mensagemFinalizacaoEnviada;
+    private boolean lembreteRevisaoAgendado;
+    private boolean lembreteRevisaoEnviadoImediatamente;
+    private LocalDateTime dataAgendamentoRevisao;
+    private List<String> avisos = new ArrayList<>();
 
     public OrdemServicoDTOResponse() {
     }
@@ -32,7 +40,7 @@ public class OrdemServicoDTOResponse {
                                    String problemaRelatado, String diagnostico,
                                    Integer quilometragem, BigDecimal valorEstimado,
                                    BigDecimal valorTotal, String formaPagamento,
-                                   String observacoes) {
+                                   String observacoes, LocalDateTime dataProximaRevisao) {
         this.id = id;
         this.clienteId = clienteId;
         this.nomeCliente = nomeCliente;
@@ -49,6 +57,7 @@ public class OrdemServicoDTOResponse {
         this.valorTotal = valorTotal;
         this.formaPagamento = formaPagamento;
         this.observacoes = observacoes;
+        this.dataProximaRevisao = dataProximaRevisao;
     }
 
     public Long getId() { return id; }
@@ -67,4 +76,32 @@ public class OrdemServicoDTOResponse {
     public BigDecimal getValorTotal() { return valorTotal; }
     public String getFormaPagamento() { return formaPagamento; }
     public String getObservacoes() { return observacoes; }
+    public LocalDateTime getDataProximaRevisao() { return dataProximaRevisao; }
+    public boolean isMensagemFinalizacaoEnviada() { return mensagemFinalizacaoEnviada; }
+    public boolean isLembreteRevisaoAgendado() { return lembreteRevisaoAgendado; }
+    public boolean isLembreteRevisaoEnviadoImediatamente() { return lembreteRevisaoEnviadoImediatamente; }
+    public LocalDateTime getDataAgendamentoRevisao() { return dataAgendamentoRevisao; }
+    public List<String> getAvisos() { return avisos; }
+
+    public void setMensagemFinalizacaoEnviada(boolean mensagemFinalizacaoEnviada) {
+        this.mensagemFinalizacaoEnviada = mensagemFinalizacaoEnviada;
+    }
+
+    public void setLembreteRevisaoAgendado(boolean lembreteRevisaoAgendado) {
+        this.lembreteRevisaoAgendado = lembreteRevisaoAgendado;
+    }
+
+    public void setLembreteRevisaoEnviadoImediatamente(boolean lembreteRevisaoEnviadoImediatamente) {
+        this.lembreteRevisaoEnviadoImediatamente = lembreteRevisaoEnviadoImediatamente;
+    }
+
+    public void setDataAgendamentoRevisao(LocalDateTime dataAgendamentoRevisao) {
+        this.dataAgendamentoRevisao = dataAgendamentoRevisao;
+    }
+
+    public void adicionarAviso(String aviso) {
+        if (aviso != null && !aviso.isBlank()) {
+            this.avisos.add(aviso);
+        }
+    }
 }

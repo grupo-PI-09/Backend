@@ -58,6 +58,9 @@ public class OrdemServicoModel {
     @Column(name = "observacoes", columnDefinition = "TEXT")
     private String observacoes;
 
+    @Column(name = "data_proxima_revisao")
+    private LocalDateTime dataProximaRevisao;
+
     public OrdemServicoModel() {
     }
 
@@ -167,5 +170,13 @@ public class OrdemServicoModel {
 
     public void setObservacoes(String observacoes) {
         this.observacoes = observacoes;
+    }
+
+    public LocalDateTime getDataProximaRevisao() {
+        return dataProximaRevisao;
+    }
+
+    public void setDataProximaRevisao(LocalDateTime dataProximaRevisao) {
+        this.dataProximaRevisao = dataProximaRevisao;
     }
 }

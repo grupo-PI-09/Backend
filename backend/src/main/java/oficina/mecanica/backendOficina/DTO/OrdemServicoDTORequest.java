@@ -38,6 +38,7 @@ public class OrdemServicoDTORequest {
     private String formaPagamento;
     private String observacoes;
     private LocalDateTime dataFechamento;
+    private LocalDateTime dataProximaRevisao;
 
     public OrdemServicoDTORequest() {
     }
@@ -136,5 +137,13 @@ public class OrdemServicoDTORequest {
 
     public void setDataFechamento(LocalDateTime dataFechamento) {
         this.dataFechamento = dataFechamento;
+    }
+
+    public LocalDateTime getDataProximaRevisao() {
+        return dataProximaRevisao;
+    }
+
+    public void setDataProximaRevisao(LocalDateTime dataProximaRevisao) {
+        this.dataProximaRevisao = dataProximaRevisao;
     }
 }
