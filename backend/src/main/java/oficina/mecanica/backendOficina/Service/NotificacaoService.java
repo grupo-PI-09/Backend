@@ -26,9 +26,23 @@ public class NotificacaoService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificacaoService.class);
     private static final DateTimeFormatter DATA_PT_BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final String SID_PLACEHOLDER = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    private static final String TOKEN_PLACEHOLDER = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    @Value("${twilio.account-sid}")
+    private String accountSid;
+
+    @Value("${twilio.auth-token}")
+    private String authToken;
 
     @Value("${twilio.whatsapp-from}")
     private String from;
+
+    @Value("${twilio.mock-enabled:true}")
+    private boolean mockEnabled;
+
+    @Value("${twilio.mock-to:11917391982}")
+    private String mockTo;
 
     private final TaskScheduler taskScheduler;
     private final Map<Long, ScheduledFuture<?>> lembretesAgendados = new ConcurrentHashMap<>();
@@ -152,21 +166,45 @@ public class NotificacaoService {
     }
 
     private boolean enviarMensagemWhatsApp(String telefoneCliente, String mensagem, String contexto) {
-        String destinatario = montarDestinatarioWhatsApp(telefoneCliente);
+        String telefoneDestino = mockEnabled ? mockTo : telefoneCliente;
+        String destinatario = montarDestinatarioWhatsApp(telefoneDestino);
         if (destinatario == null) {
             log.warn("Mensagem de {} não enviada: telefone do cliente ausente ou inválido.", contexto);
             return false;
         }
 
-        if (from == null || from.isBlank()) {
+        String remetente = montarRemetenteWhatsApp(from);
+        if (remetente == null) {
             log.warn("Mensagem de {} não enviada: remetente Twilio não configurado.", contexto);
             return false;
+        }
+
+        if (!credenciaisTwilioConfiguradas()) {
+            if (mockEnabled) {
+                log.info("MOCK Twilio - mensagem de {} registrada sem envio real. De: {} | Para: {} | Texto: {}",
+                        contexto,
+                        remetente,
+                        destinatario,
+                        mensagem
+                );
+                return true;
+            }
+
+            log.warn("Mensagem de {} não enviada: credenciais Twilio não configuradas.", contexto);
+            return false;
+        }
+
+        if (mockEnabled) {
+            log.info("MOCK Twilio - enviando mensagem de {} para o número de teste configurado {}.",
+                    contexto,
+                    destinatario
+            );
         }
 
         try {
             Message.creator(
                     new PhoneNumber(destinatario),
-                    new PhoneNumber(from),
+                    new PhoneNumber(remetente),
                     mensagem
             ).create();
 
@@ -178,18 +216,52 @@ public class NotificacaoService {
         }
     }
 
+    private boolean credenciaisTwilioConfiguradas() {
+        return accountSid != null && !accountSid.isBlank()
+                && authToken != null && !authToken.isBlank()
+                && !SID_PLACEHOLDER.equals(accountSid)
+                && !TOKEN_PLACEHOLDER.equals(authToken);
+    }
+
     private String montarDestinatarioWhatsApp(String telefoneCliente) {
-        String digitos = telefoneCliente != null ? telefoneCliente.replaceAll("[^0-9]", "") : "";
+        String numero = montarNumeroWhatsApp(telefoneCliente, true);
+        if (numero == null) {
+            return null;
+        }
+
+        String digitos = numero.replaceAll("[^0-9]", "");
         if (digitos.isBlank()) {
             return null;
         }
 
-        if (digitos.length() == 10 || digitos.length() == 11) {
-            digitos = "55" + digitos;
-        }
-
         if (!digitos.startsWith("55") || digitos.length() < 12 || digitos.length() > 13) {
             return null;
+        }
+
+        return numero;
+    }
+
+    private String montarRemetenteWhatsApp(String telefone) {
+        return montarNumeroWhatsApp(telefone, false);
+    }
+
+    private String montarNumeroWhatsApp(String telefone, boolean aplicarDdiBrasilQuandoLocal) {
+        String valor = valorOuPadrao(telefone, "");
+        if (valor.isBlank()) {
+            return null;
+        }
+
+        if (valor.startsWith("whatsapp:+")) {
+            return valor;
+        }
+
+        String digitos = valor.replaceAll("[^0-9]", "");
+        if (digitos.isBlank()) {
+            return null;
+        }
+
+        if (aplicarDdiBrasilQuandoLocal && (digitos.length() == 10 || digitos.length() == 11)) {
+            digitos = "55" + digitos;
         }
 
         return "whatsapp:+" + digitos;

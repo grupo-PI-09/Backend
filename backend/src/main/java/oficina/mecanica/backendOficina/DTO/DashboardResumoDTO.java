@@ -56,6 +56,7 @@ public class DashboardResumoDTO {
     public long getTotalVeiculos() { return totalVeiculos; }
     public long getTotalOrdensServico() { return totalOrdensServico; }
     public long getTotalOrdensAbertasEmAndamento() { return totalOrdensAbertasEmAndamento; }
+    public long getTotalOrdensAbertas() { return totalOrdensAbertasEmAndamento; }
     public long getTotalOrdensFinalizadas() { return totalOrdensFinalizadas; }
     public long getOrdensFinalizadasMes() { return ordensFinalizadasMes; }
     public long getNovosClientesMes() { return novosClientesMes; }
