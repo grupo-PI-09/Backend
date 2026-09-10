@@ -10,7 +10,10 @@ import oficina.mecanica.backendOficina.Model.VeiculoModel;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
 import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,7 +38,7 @@ public class OrdemServicoService {
     }
 
     public List<OrdemServicoDTOResponse> listar() {
-        return ordemServicoRepository.findAll()
+        return ordemServicoRepository.findAllByOrderByDataAberturaDesc()
                 .stream()
                 .map(this::converterParaResponse)
                 .toList();
@@ -43,7 +46,7 @@ public class OrdemServicoService {
 
     public OrdemServicoDTOResponse buscarPorId(Long id) {
         OrdemServicoModel ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Ordem de serviço não encontrada"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de serviço não encontrada"));
 
         return converterParaResponse(ordemServico);
     }
@@ -63,31 +66,34 @@ public class OrdemServicoService {
                 .toList();
     }
 
+    @Transactional
     public OrdemServicoDTOResponse criar(OrdemServicoDTORequest dto) {
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
         VeiculoModel veiculo = veiculoRepository.findById(dto.getVeiculoId())
-                .orElseThrow(() -> new RuntimeException("Veículo não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
 
         OrdemServicoModel ordemServico = new OrdemServicoModel();
         ordemServico.setCliente(cliente);
         ordemServico.setVeiculo(veiculo);
         aplicarDadosDto(ordemServico, dto);
+        sincronizarQuilometragemVeiculo(veiculo, dto.getQuilometragem());
 
         OrdemServicoModel salva = ordemServicoRepository.save(ordemServico);
         return converterParaResponse(salva);
     }
 
+    @Transactional
     public OrdemServicoDTOResponse atualizar(Long id, OrdemServicoDTORequest dto) {
         OrdemServicoModel ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Ordem de serviço não encontrada"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de serviço não encontrada"));
 
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
         VeiculoModel veiculo = veiculoRepository.findById(dto.getVeiculoId())
-                .orElseThrow(() -> new RuntimeException("Veículo não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
 
         boolean deveNotificarFinalizacao = ordemServico.getStatus() != StatusOrdemServico.finalizada
                 && parseStatus(dto.getStatus()) == StatusOrdemServico.finalizada;
@@ -95,6 +101,7 @@ public class OrdemServicoService {
         ordemServico.setCliente(cliente);
         ordemServico.setVeiculo(veiculo);
         aplicarDadosDto(ordemServico, dto);
+        sincronizarQuilometragemVeiculo(veiculo, dto.getQuilometragem());
 
         OrdemServicoModel atualizada = ordemServicoRepository.save(ordemServico);
         OrdemServicoDTOResponse response = converterParaResponse(atualizada);
@@ -131,6 +138,15 @@ public class OrdemServicoService {
         return StatusOrdemServico.valueOf(status.toLowerCase());
     }
 
+    private void sincronizarQuilometragemVeiculo(VeiculoModel veiculo, Integer quilometragem) {
+        if (veiculo == null || quilometragem == null) {
+            return;
+        }
+
+        veiculo.setQuilometragem(quilometragem);
+        veiculoRepository.save(veiculo);
+    }
+
     private void adicionarResultadoNotificacoesFinalizacao(OrdemServicoModel ordemServico,
                                                            OrdemServicoDTOResponse response) {
         NotificacaoResultadoDTO finalizacao = notificacaoService.enviarMensagemFinalizacao(ordemServico);
@@ -150,7 +166,7 @@ public class OrdemServicoService {
 
     public void deletar(Long id) {
         if (!ordemServicoRepository.existsById(id)) {
-            throw new RuntimeException("Ordem de serviço não encontrada");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de serviço não encontrada");
         }
 
         ordemServicoRepository.deleteById(id);

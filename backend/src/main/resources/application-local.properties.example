@@ -1,0 +1,28 @@
+# Copie este arquivo para application-local.properties (ignorado pelo git) e
+# rode a aplicacao com:  ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+#
+# NUNCA versione o application-local.properties preenchido.
+
+spring.datasource.url=jdbc:mysql://localhost:3306/rr_maxx
+spring.datasource.username=oficina_app
+spring.datasource.password=TROQUE_ESTA_SENHA
+
+# Em desenvolvimento e util deixar o Hibernate criar/atualizar o schema.
+# Em producao permanece "validate" (definido em application.properties).
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+# Gere o seu com: openssl rand -base64 48
+app.jwt.secret=COLE_AQUI_UM_SEGREDO_DE_NO_MINIMO_32_CARACTERES
+
+# Token da APIBrasil (obtenha no painel da sua conta)
+apibrasil.token=
+
+# Swagger liberado apenas em desenvolvimento
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true
+
+# Admin inicial: criado somente se a tabela de usuarios estiver vazia
+app.bootstrap.admin.email=admin@oficina.local
+app.bootstrap.admin.nome=Administrador
+app.bootstrap.admin.senha=TROQUE_ESTA_SENHA1

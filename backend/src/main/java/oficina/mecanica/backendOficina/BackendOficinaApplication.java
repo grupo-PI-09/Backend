@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 public class
-BackendOficinaApplication {
+    BackendOficinaApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(BackendOficinaApplication.class, args);

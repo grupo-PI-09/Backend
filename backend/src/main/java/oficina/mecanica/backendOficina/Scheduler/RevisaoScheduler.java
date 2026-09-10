@@ -26,7 +26,7 @@ public class RevisaoScheduler {
         this.notificacaoService = notificacaoService;
     }
 
-    @Scheduled(cron = "${twilio.revisao-scheduler-cron:0 0 8 * * *}")
+    @Scheduled(cron = "${notificacoes.revisao-scheduler-cron:0 0 8 * * *}")
     public void verificarRevisoesProximas() {
         log.info("Scheduler iniciado: verificando revisões preventivas para agendamento.");
 

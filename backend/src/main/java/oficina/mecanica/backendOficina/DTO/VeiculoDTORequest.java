@@ -3,6 +3,7 @@ package oficina.mecanica.backendOficina.DTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 public class VeiculoDTORequest {
 
@@ -20,7 +21,7 @@ public class VeiculoDTORequest {
     private Integer ano;
 
     @NotNull(message = "Quilometragem é obrigatória")
-    @Positive(message = "Quilometragem deve ser positiva")
+    @PositiveOrZero(message = "Quilometragem não pode ser negativa")
     private Integer quilometragem;
 
     @NotBlank(message = "Tipo de combustível é obrigatório")
@@ -28,6 +29,8 @@ public class VeiculoDTORequest {
 
     @NotNull(message = "Cliente é obrigatório")
     private Long clienteId;
+
+    private Boolean ativo;
 
     public VeiculoDTORequest() {
     }
@@ -86,5 +89,13 @@ public class VeiculoDTORequest {
 
     public void setClienteId(Long clienteId) {
         this.clienteId = clienteId;
+    }
+
+    public Boolean getAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
     }
 }

@@ -1,7 +1,10 @@
 package oficina.mecanica.backendOficina.DTO;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
+/**
+ * OWASP A04:2021 - minimizacao de dados.
+ * O campo "raw", que repassava ao frontend a resposta bruta e completa do
+ * ViaCEP, foi removido: apenas os campos usados pelo cadastro sao expostos.
+ */
 public class ConsultaCepResponse {
 
     private String cep;
@@ -10,20 +13,18 @@ public class ConsultaCepResponse {
     private String bairro;
     private String cidade;
     private String estado;
-    private JsonNode raw;
 
     public ConsultaCepResponse() {
     }
 
     public ConsultaCepResponse(String cep, String logradouro, String complemento,
-                               String bairro, String cidade, String estado, JsonNode raw) {
+                               String bairro, String cidade, String estado) {
         this.cep = cep;
         this.logradouro = logradouro;
         this.complemento = complemento;
         this.bairro = bairro;
         this.cidade = cidade;
         this.estado = estado;
-        this.raw = raw;
     }
 
     public String getCep() {
@@ -72,13 +73,5 @@ public class ConsultaCepResponse {
 
     public void setEstado(String estado) {
         this.estado = estado;
-    }
-
-    public JsonNode getRaw() {
-        return raw;
-    }
-
-    public void setRaw(JsonNode raw) {
-        this.raw = raw;
     }
 }

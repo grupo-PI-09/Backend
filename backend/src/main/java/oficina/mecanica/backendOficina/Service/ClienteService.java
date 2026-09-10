@@ -4,7 +4,9 @@ import oficina.mecanica.backendOficina.DTO.ClienteDTORequest;
 import oficina.mecanica.backendOficina.DTO.ClienteDTOResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +31,7 @@ public class ClienteService {
         Optional<ClienteModel> clienteOptional = clienteRepository.findById(id);
 
         if (clienteOptional.isEmpty()) {
-            throw new RuntimeException("Cliente não encontrado");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado");
         }
 
         return converterParaResponse(clienteOptional.get());
@@ -51,7 +53,7 @@ public class ClienteService {
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
         preencherEndereco(cliente, dto);
-        cliente.setAtivo(true);
+        cliente.setAtivo(dto.getAtivo() != null ? dto.getAtivo() : true);
 
         ClienteModel clienteSalvo = clienteRepository.save(cliente);
         return converterParaResponse(clienteSalvo);
@@ -59,7 +61,7 @@ public class ClienteService {
 
     public ClienteDTOResponse atualizar(Long id, ClienteDTORequest dto) {
         ClienteModel cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
         cliente.setNome(dto.getNome());
         cliente.setCpf(normalizarApenasDigitos(dto.getCpf()));
@@ -67,6 +69,9 @@ public class ClienteService {
         cliente.setTelefone(dto.getTelefone());
         cliente.setEmail(dto.getEmail());
         preencherEndereco(cliente, dto);
+        if (dto.getAtivo() != null) {
+            cliente.setAtivo(dto.getAtivo());
+        }
 
         ClienteModel clienteAtualizado = clienteRepository.save(cliente);
         return converterParaResponse(clienteAtualizado);
@@ -74,7 +79,7 @@ public class ClienteService {
 
     public void deletar(Long id) {
         if (!clienteRepository.existsById(id)) {
-            throw new RuntimeException("Cliente não encontrado");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado");
         }
 
         clienteRepository.deleteById(id);

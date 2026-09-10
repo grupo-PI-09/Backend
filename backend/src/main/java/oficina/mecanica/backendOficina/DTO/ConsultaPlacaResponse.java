@@ -1,24 +1,26 @@
 package oficina.mecanica.backendOficina.DTO;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
+/**
+ * OWASP A04:2021 - minimizacao de dados.
+ * O campo "raw", que repassava ao frontend a resposta bruta e completa da
+ * APIBrasil (incluindo dados que a aplicacao nao utiliza), foi removido.
+ * Apenas os campos efetivamente usados pelo sistema sao expostos.
+ */
 public class ConsultaPlacaResponse {
 
     private String placa;
     private String marca;
     private String modelo;
     private String ano;
-    private JsonNode raw;
 
     public ConsultaPlacaResponse() {
     }
 
-    public ConsultaPlacaResponse(String placa, String marca, String modelo, String ano, JsonNode raw) {
+    public ConsultaPlacaResponse(String placa, String marca, String modelo, String ano) {
         this.placa = placa;
         this.marca = marca;
         this.modelo = modelo;
         this.ano = ano;
-        this.raw = raw;
     }
 
     public String getPlaca() {
@@ -51,13 +53,5 @@ public class ConsultaPlacaResponse {
 
     public void setAno(String ano) {
         this.ano = ano;
-    }
-
-    public JsonNode getRaw() {
-        return raw;
-    }
-
-    public void setRaw(JsonNode raw) {
-        this.raw = raw;
     }
 }

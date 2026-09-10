@@ -6,9 +6,11 @@ import oficina.mecanica.backendOficina.DTO.DashboardPontoNumericoDTO;
 import oficina.mecanica.backendOficina.DTO.DashboardResumoDTO;
 import oficina.mecanica.backendOficina.DTO.DashboardRevisaoMensalDTO;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
+import oficina.mecanica.backendOficina.Model.StatusNotificacao;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
 import oficina.mecanica.backendOficina.Model.VeiculoModel;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
+import oficina.mecanica.backendOficina.Repository.NotificacaoRepository;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
 import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
 import org.springframework.stereotype.Service;
@@ -32,13 +34,16 @@ public class DashboardService {
     private final ClienteRepository clienteRepository;
     private final VeiculoRepository veiculoRepository;
     private final OrdemServicoRepository ordemServicoRepository;
+    private final NotificacaoRepository notificacaoRepository;
 
     public DashboardService(ClienteRepository clienteRepository,
                             VeiculoRepository veiculoRepository,
-                            OrdemServicoRepository ordemServicoRepository) {
+                            OrdemServicoRepository ordemServicoRepository,
+                            NotificacaoRepository notificacaoRepository) {
         this.clienteRepository = clienteRepository;
         this.veiculoRepository = veiculoRepository;
         this.ordemServicoRepository = ordemServicoRepository;
+        this.notificacaoRepository = notificacaoRepository;
     }
 
     public DashboardResumoDTO obterResumo() {
@@ -75,7 +80,7 @@ public class DashboardService {
                 finalizadasMes,
                 novosClientesMes,
                 proximasRevisoes,
-                0,
+                notificacaoRepository.countByStatus(StatusNotificacao.enviada),
                 valorOuZero(ordemServicoRepository.somarFaturamentoTotal()),
                 valorOuZero(ordemServicoRepository.somarFaturamentoPorStatusEDataFechamento(
                         StatusOrdemServico.finalizada,

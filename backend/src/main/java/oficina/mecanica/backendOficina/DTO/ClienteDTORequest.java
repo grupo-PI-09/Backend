@@ -44,6 +44,8 @@ public class ClienteDTORequest {
     @Size(max = 2, message = "Estado deve conter a UF com 2 caracteres")
     private String estado;
 
+    private Boolean ativo;
+
     public ClienteDTORequest() {
     }
 
@@ -149,5 +151,13 @@ public class ClienteDTORequest {
 
     public void setEstado(String estado) {
         this.estado = estado;
+    }
+
+    public Boolean getAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
     }
 }

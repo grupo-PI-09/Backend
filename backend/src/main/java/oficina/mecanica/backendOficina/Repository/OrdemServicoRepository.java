@@ -14,6 +14,9 @@ import java.util.List;
 
 public interface OrdemServicoRepository extends JpaRepository<OrdemServicoModel, Long> {
 
+    @EntityGraph(attributePaths = {"cliente", "veiculo"})
+    List<OrdemServicoModel> findAllByOrderByDataAberturaDesc();
+
     List<OrdemServicoModel> findByClienteId(Long clienteId);
 
     List<OrdemServicoModel> findByVeiculoId(Long veiculoId);

@@ -51,8 +51,7 @@ public class CepService {
                     root.path("complemento").asText(""),
                     root.path("bairro").asText(""),
                     root.path("localidade").asText(""),
-                    root.path("uf").asText(""),
-                    root
+                    root.path("uf").asText("")
             );
         } catch (HttpStatusCodeException ex) {
             throw new ResponseStatusException(

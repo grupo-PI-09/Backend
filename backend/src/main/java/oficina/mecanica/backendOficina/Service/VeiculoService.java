@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
@@ -62,7 +63,7 @@ public class VeiculoService {
 
     public VeiculoDTOResponse buscarPorId(Long id) {
         VeiculoModel veiculo = veiculoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Veículo não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
 
         return converterParaResponse(veiculo);
     }
@@ -135,8 +136,7 @@ public class VeiculoService {
                     placaNormalizada,
                     extrairMarca(root),
                     extrairModelo(root),
-                    extrairTexto(root, "data.data[0].anoModelo", "data.data[0].anoFabricacao", "data.veiculo.ano", "ano"),
-                    root
+                    extrairTexto(root, "data.data[0].anoModelo", "data.data[0].anoFabricacao", "data.veiculo.ano", "ano")
             );
         } catch (HttpStatusCodeException ex) {
             HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
@@ -156,7 +156,7 @@ public class VeiculoService {
 
     public VeiculoDTOResponse criar(VeiculoDTORequest dto) {
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
         VeiculoModel veiculo = new VeiculoModel();
         veiculo.setPlaca(dto.getPlaca());
@@ -165,7 +165,7 @@ public class VeiculoService {
         veiculo.setAno(dto.getAno());
         veiculo.setQuilometragem(dto.getQuilometragem());
         veiculo.setTipoCombustivel(TipoCombustivel.valueOf(dto.getTipoCombustivel().toLowerCase()));
-        veiculo.setAtivo(true);
+        veiculo.setAtivo(dto.getAtivo() != null ? dto.getAtivo() : true);
         veiculo.setCliente(cliente);
 
         VeiculoModel veiculoSalvo = veiculoRepository.save(veiculo);
@@ -174,10 +174,10 @@ public class VeiculoService {
 
     public VeiculoDTOResponse atualizar(Long id, VeiculoDTORequest dto) {
         VeiculoModel veiculo = veiculoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Veículo não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
 
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
         veiculo.setPlaca(dto.getPlaca());
         veiculo.setModelo(dto.getModelo());
@@ -185,6 +185,9 @@ public class VeiculoService {
         veiculo.setAno(dto.getAno());
         veiculo.setQuilometragem(dto.getQuilometragem());
         veiculo.setTipoCombustivel(TipoCombustivel.valueOf(dto.getTipoCombustivel().toLowerCase()));
+        if (dto.getAtivo() != null) {
+            veiculo.setAtivo(dto.getAtivo());
+        }
         veiculo.setCliente(cliente);
 
         VeiculoModel veiculoAtualizado = veiculoRepository.save(veiculo);
@@ -193,7 +196,7 @@ public class VeiculoService {
 
     public void deletar(Long id) {
         if (!veiculoRepository.existsById(id)) {
-            throw new RuntimeException("Veículo não encontrado");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado");
         }
 
         veiculoRepository.deleteById(id);
