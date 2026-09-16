@@ -20,6 +20,9 @@ public class OrdemServicoDTORequest {
     @NotBlank(message = "Status é obrigatório")
     private String status;
 
+    // preventiva | corretiva (opcional: padrão corretiva)
+    private String tipoServico;
+
     @NotBlank(message = "Problema relatado é obrigatório")
     private String problemaRelatado;
 
@@ -73,6 +76,14 @@ public class OrdemServicoDTORequest {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getTipoServico() {
+        return tipoServico;
+    }
+
+    public void setTipoServico(String tipoServico) {
+        this.tipoServico = tipoServico;
     }
 
     public String getProblemaRelatado() {

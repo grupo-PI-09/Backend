@@ -37,6 +37,10 @@ public class OrdemServicoModel {
     @Column(name = "status", nullable = false)
     private StatusOrdemServico status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_servico", nullable = false)
+    private TipoServico tipoServico = TipoServico.corretiva;
+
     @Column(name = "problema_relatado", columnDefinition = "TEXT")
     private String problemaRelatado;
 
@@ -114,6 +118,14 @@ public class OrdemServicoModel {
 
     public void setStatus(StatusOrdemServico status) {
         this.status = status;
+    }
+
+    public TipoServico getTipoServico() {
+        return tipoServico;
+    }
+
+    public void setTipoServico(TipoServico tipoServico) {
+        this.tipoServico = tipoServico;
     }
 
     public String getProblemaRelatado() {

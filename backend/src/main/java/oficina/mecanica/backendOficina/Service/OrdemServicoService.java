@@ -1,15 +1,20 @@
 package oficina.mecanica.backendOficina.Service;
 
-import oficina.mecanica.backendOficina.DTO.NotificacaoResultadoDTO;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTORequest;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTOResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
+import oficina.mecanica.backendOficina.Model.TipoServico;
 import oficina.mecanica.backendOficina.Model.VeiculoModel;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
 import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
+import oficina.mecanica.backendOficina.notificacao.infra.OrdemParaNotificarMapper;
+import oficina.mecanica.backendOficina.notificacao.usecase.AgendarLembreteRevisaoUseCase;
+import oficina.mecanica.backendOficina.notificacao.usecase.NotificarFinalizacaoOrdemUseCase;
+import oficina.mecanica.backendOficina.notificacao.usecase.OrdemParaNotificar;
+import oficina.mecanica.backendOficina.notificacao.usecase.ResultadoNotificacao;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,20 +30,23 @@ public class OrdemServicoService {
     private final OrdemServicoRepository ordemServicoRepository;
     private final ClienteRepository clienteRepository;
     private final VeiculoRepository veiculoRepository;
-    private final NotificacaoService notificacaoService;
+    private final NotificarFinalizacaoOrdemUseCase notificarFinalizacao;
+    private final AgendarLembreteRevisaoUseCase agendarLembreteRevisao;
 
     public OrdemServicoService(OrdemServicoRepository ordemServicoRepository,
                                ClienteRepository clienteRepository,
                                VeiculoRepository veiculoRepository,
-                               NotificacaoService notificacaoService) {
+                               NotificarFinalizacaoOrdemUseCase notificarFinalizacao,
+                               AgendarLembreteRevisaoUseCase agendarLembreteRevisao) {
         this.ordemServicoRepository = ordemServicoRepository;
         this.clienteRepository = clienteRepository;
         this.veiculoRepository = veiculoRepository;
-        this.notificacaoService = notificacaoService;
+        this.notificarFinalizacao = notificarFinalizacao;
+        this.agendarLembreteRevisao = agendarLembreteRevisao;
     }
 
     public List<OrdemServicoDTOResponse> listar() {
-        return ordemServicoRepository.findAllByOrderByDataAberturaDesc()
+        return ordemServicoRepository.findAllByOrderByDataAberturaDescIdDesc()
                 .stream()
                 .map(this::converterParaResponse)
                 .toList();
@@ -118,6 +126,7 @@ public class OrdemServicoService {
 
         ordemServico.setUsuarioId(dto.getUsuarioId());
         ordemServico.setStatus(status);
+        ordemServico.setTipoServico(parseTipoServico(dto.getTipoServico()));
         ordemServico.setProblemaRelatado(dto.getProblemaRelatado());
         ordemServico.setDiagnostico(dto.getDiagnostico());
         ordemServico.setQuilometragem(dto.getQuilometragem());
@@ -138,6 +147,19 @@ public class OrdemServicoService {
         return StatusOrdemServico.valueOf(status.toLowerCase());
     }
 
+    private TipoServico parseTipoServico(String tipoServico) {
+        if (tipoServico == null || tipoServico.isBlank()) {
+            return TipoServico.corretiva;
+        }
+
+        try {
+            return TipoServico.valueOf(tipoServico.trim().toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tipo de serviço inválido. Use 'preventiva' ou 'corretiva'.");
+        }
+    }
+
     private void sincronizarQuilometragemVeiculo(VeiculoModel veiculo, Integer quilometragem) {
         if (veiculo == null || quilometragem == null) {
             return;
@@ -149,19 +171,21 @@ public class OrdemServicoService {
 
     private void adicionarResultadoNotificacoesFinalizacao(OrdemServicoModel ordemServico,
                                                            OrdemServicoDTOResponse response) {
-        NotificacaoResultadoDTO finalizacao = notificacaoService.enviarMensagemFinalizacao(ordemServico);
-        response.setMensagemFinalizacaoEnviada(finalizacao.isEnviada());
-        response.adicionarAviso(finalizacao.getAviso());
+        OrdemParaNotificar ordem = OrdemParaNotificarMapper.de(ordemServico);
+
+        ResultadoNotificacao finalizacao = notificarFinalizacao.executar(ordem);
+        response.setMensagemFinalizacaoEnviada(finalizacao.enviada());
+        response.adicionarAviso(finalizacao.aviso());
 
         if (ordemServico.getDataProximaRevisao() == null) {
             return;
         }
 
-        NotificacaoResultadoDTO revisao = notificacaoService.agendarLembreteRevisao(ordemServico);
-        response.setLembreteRevisaoAgendado(revisao.isAgendada());
-        response.setLembreteRevisaoEnviadoImediatamente(revisao.isEnviadaImediatamente());
-        response.setDataAgendamentoRevisao(revisao.getDataAgendamento());
-        response.adicionarAviso(revisao.getAviso());
+        ResultadoNotificacao revisao = agendarLembreteRevisao.executar(ordem);
+        response.setLembreteRevisaoAgendado(revisao.agendada());
+        response.setLembreteRevisaoEnviadoImediatamente(revisao.enviadaImediatamente());
+        response.setDataAgendamentoRevisao(revisao.dataAgendamento());
+        response.adicionarAviso(revisao.aviso());
     }
 
     public void deletar(Long id) {
@@ -183,6 +207,7 @@ public class OrdemServicoService {
                 ordemServico.getDataAbertura(),
                 ordemServico.getDataFechamento(),
                 ordemServico.getStatus().name(),
+                ordemServico.getTipoServico() != null ? ordemServico.getTipoServico().name() : TipoServico.corretiva.name(),
                 ordemServico.getProblemaRelatado(),
                 ordemServico.getDiagnostico(),
                 ordemServico.getQuilometragem(),

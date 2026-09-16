@@ -1,5 +1,4 @@
 package oficina.mecanica.backendOficina.Config;
-
 import oficina.mecanica.backendOficina.Model.PerfilUsuario;
 import oficina.mecanica.backendOficina.Model.UsuarioModel;
 import oficina.mecanica.backendOficina.Repository.UsuarioRepository;
@@ -9,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
 /**
  * Cria o primeiro administrador a partir de variaveis de ambiente, e somente
  * quando ainda nao existe nenhum usuario cadastrado.

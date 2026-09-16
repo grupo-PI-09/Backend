@@ -1,72 +1,37 @@
 package oficina.mecanica.backendOficina.DTO;
 
-import java.math.BigDecimal;
 import java.util.List;
 
+/** Resposta de GET /dashboard/resumo — painel financeiro. */
 public class DashboardResumoDTO {
 
+    private DashboardFaturamentoDTO faturamento;
     private long totalClientes;
-    private long totalVeiculos;
-    private long totalOrdensServico;
-    private long totalOrdensAbertasEmAndamento;
-    private long totalOrdensFinalizadas;
-    private long ordensFinalizadasMes;
     private long novosClientesMes;
-    private long proximasRevisoes;
-    private long notificacoesEnviadas;
-    private BigDecimal faturamentoTotal;
-    private BigDecimal faturamentoMes;
-    private List<DashboardOrdemDTO> ultimasOrdens;
-    private List<DashboardOrdemDTO> servicosProximosRevisao;
-    private List<DashboardPontoNumericoDTO> finalizacoesUltimosMeses;
-    private List<DashboardPontoFinanceiroDTO> faturamentoUltimosMeses;
-    private List<DashboardRevisaoMensalDTO> revisoesPreventivasUltimosMeses;
+    /** Mês atual do ano anterior e do ano atual, nesta ordem. */
+    private List<DashboardPontoFinanceiroDTO> faturamentoMensalComparativo;
+    private DashboardEvolucaoFaturamentoDTO evolucaoFaturamento;
+    private DashboardServicosPorTipoDTO servicosPorTipo;
 
     public DashboardResumoDTO() {
     }
 
-    public DashboardResumoDTO(long totalClientes, long totalVeiculos, long totalOrdensServico,
-                              long totalOrdensAbertasEmAndamento, long totalOrdensFinalizadas,
-                              long ordensFinalizadasMes, long novosClientesMes, long proximasRevisoes,
-                              long notificacoesEnviadas, BigDecimal faturamentoTotal, BigDecimal faturamentoMes,
-                              List<DashboardOrdemDTO> ultimasOrdens,
-                              List<DashboardOrdemDTO> servicosProximosRevisao,
-                              List<DashboardPontoNumericoDTO> finalizacoesUltimosMeses,
-                              List<DashboardPontoFinanceiroDTO> faturamentoUltimosMeses,
-                              List<DashboardRevisaoMensalDTO> revisoesPreventivasUltimosMeses) {
+    public DashboardResumoDTO(DashboardFaturamentoDTO faturamento, long totalClientes, long novosClientesMes,
+                              List<DashboardPontoFinanceiroDTO> faturamentoMensalComparativo,
+                              DashboardEvolucaoFaturamentoDTO evolucaoFaturamento,
+                              DashboardServicosPorTipoDTO servicosPorTipo) {
+        this.faturamento = faturamento;
         this.totalClientes = totalClientes;
-        this.totalVeiculos = totalVeiculos;
-        this.totalOrdensServico = totalOrdensServico;
-        this.totalOrdensAbertasEmAndamento = totalOrdensAbertasEmAndamento;
-        this.totalOrdensFinalizadas = totalOrdensFinalizadas;
-        this.ordensFinalizadasMes = ordensFinalizadasMes;
         this.novosClientesMes = novosClientesMes;
-        this.proximasRevisoes = proximasRevisoes;
-        this.notificacoesEnviadas = notificacoesEnviadas;
-        this.faturamentoTotal = faturamentoTotal;
-        this.faturamentoMes = faturamentoMes;
-        this.ultimasOrdens = ultimasOrdens;
-        this.servicosProximosRevisao = servicosProximosRevisao;
-        this.finalizacoesUltimosMeses = finalizacoesUltimosMeses;
-        this.faturamentoUltimosMeses = faturamentoUltimosMeses;
-        this.revisoesPreventivasUltimosMeses = revisoesPreventivasUltimosMeses;
+        this.faturamentoMensalComparativo = faturamentoMensalComparativo;
+        this.evolucaoFaturamento = evolucaoFaturamento;
+        this.servicosPorTipo = servicosPorTipo;
     }
 
+    public DashboardFaturamentoDTO getFaturamento() { return faturamento; }
     public long getTotalClientes() { return totalClientes; }
-    public long getTotalVeiculos() { return totalVeiculos; }
-    public long getTotalOrdensServico() { return totalOrdensServico; }
-    public long getTotalOrdensAbertasEmAndamento() { return totalOrdensAbertasEmAndamento; }
-    public long getTotalOrdensAbertas() { return totalOrdensAbertasEmAndamento; }
-    public long getTotalOrdensFinalizadas() { return totalOrdensFinalizadas; }
-    public long getOrdensFinalizadasMes() { return ordensFinalizadasMes; }
     public long getNovosClientesMes() { return novosClientesMes; }
-    public long getProximasRevisoes() { return proximasRevisoes; }
-    public long getNotificacoesEnviadas() { return notificacoesEnviadas; }
-    public BigDecimal getFaturamentoTotal() { return faturamentoTotal; }
-    public BigDecimal getFaturamentoMes() { return faturamentoMes; }
-    public List<DashboardOrdemDTO> getUltimasOrdens() { return ultimasOrdens; }
-    public List<DashboardOrdemDTO> getServicosProximosRevisao() { return servicosProximosRevisao; }
-    public List<DashboardPontoNumericoDTO> getFinalizacoesUltimosMeses() { return finalizacoesUltimosMeses; }
-    public List<DashboardPontoFinanceiroDTO> getFaturamentoUltimosMeses() { return faturamentoUltimosMeses; }
-    public List<DashboardRevisaoMensalDTO> getRevisoesPreventivasUltimosMeses() { return revisoesPreventivasUltimosMeses; }
+    public List<DashboardPontoFinanceiroDTO> getFaturamentoMensalComparativo() { return faturamentoMensalComparativo; }
+    public DashboardEvolucaoFaturamentoDTO getEvolucaoFaturamento() { return evolucaoFaturamento; }
+    public DashboardServicosPorTipoDTO getServicosPorTipo() { return servicosPorTipo; }
 }

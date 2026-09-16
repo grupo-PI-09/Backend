@@ -3,7 +3,8 @@ package oficina.mecanica.backendOficina.Scheduler;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
-import oficina.mecanica.backendOficina.Service.NotificacaoService;
+import oficina.mecanica.backendOficina.notificacao.infra.OrdemParaNotificarMapper;
+import oficina.mecanica.backendOficina.notificacao.usecase.AgendarLembreteRevisaoUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,12 +19,12 @@ public class RevisaoScheduler {
     private static final Logger log = LoggerFactory.getLogger(RevisaoScheduler.class);
 
     private final OrdemServicoRepository ordemServicoRepository;
-    private final NotificacaoService notificacaoService;
+    private final AgendarLembreteRevisaoUseCase agendarLembreteRevisao;
 
     public RevisaoScheduler(OrdemServicoRepository ordemServicoRepository,
-                            NotificacaoService notificacaoService) {
+                            AgendarLembreteRevisaoUseCase agendarLembreteRevisao) {
         this.ordemServicoRepository = ordemServicoRepository;
-        this.notificacaoService = notificacaoService;
+        this.agendarLembreteRevisao = agendarLembreteRevisao;
     }
 
     @Scheduled(cron = "${notificacoes.revisao-scheduler-cron:0 0 8 * * *}")
@@ -44,7 +45,7 @@ public class RevisaoScheduler {
         log.info("Revisões encontradas para lembrete nas próximas 24h: {}", ordens.size());
 
         for (OrdemServicoModel os : ordens) {
-            notificacaoService.agendarLembreteRevisao(os);
+            agendarLembreteRevisao.executar(OrdemParaNotificarMapper.de(os));
         }
 
         log.info("Scheduler finalizado.");

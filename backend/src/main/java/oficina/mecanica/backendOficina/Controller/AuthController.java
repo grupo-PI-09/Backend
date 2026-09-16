@@ -21,12 +21,6 @@ public class AuthController {
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
-
-    /**
-     * OWASP A01: cadastro deixou de ser publico. Apenas um administrador
-     * autenticado cria novos usuarios, e a resposta nao devolve token do
-     * usuario criado.
-     */
     @PostMapping("/cadastro")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UsuarioAuthResponse> cadastrar(@RequestBody @Valid AuthCadastroRequest request) {

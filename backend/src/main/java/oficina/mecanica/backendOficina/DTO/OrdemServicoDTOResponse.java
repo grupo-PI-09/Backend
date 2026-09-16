@@ -16,6 +16,7 @@ public class OrdemServicoDTOResponse {
     private LocalDateTime dataAbertura;
     private LocalDateTime dataFechamento;
     private String status;
+    private String tipoServico;
     private String problemaRelatado;
     private String diagnostico;
     private Integer quilometragem;
@@ -37,7 +38,7 @@ public class OrdemServicoDTOResponse {
                                    Long veiculoId, String placaVeiculo,
                                    Long usuarioId, LocalDateTime dataAbertura,
                                    LocalDateTime dataFechamento, String status,
-                                   String problemaRelatado, String diagnostico,
+                                   String tipoServico, String problemaRelatado, String diagnostico,
                                    Integer quilometragem, BigDecimal valorEstimado,
                                    BigDecimal valorTotal, String formaPagamento,
                                    String observacoes, LocalDateTime dataProximaRevisao) {
@@ -50,6 +51,7 @@ public class OrdemServicoDTOResponse {
         this.dataAbertura = dataAbertura;
         this.dataFechamento = dataFechamento;
         this.status = status;
+        this.tipoServico = tipoServico;
         this.problemaRelatado = problemaRelatado;
         this.diagnostico = diagnostico;
         this.quilometragem = quilometragem;
@@ -69,6 +71,7 @@ public class OrdemServicoDTOResponse {
     public LocalDateTime getDataAbertura() { return dataAbertura; }
     public LocalDateTime getDataFechamento() { return dataFechamento; }
     public String getStatus() { return status; }
+    public String getTipoServico() { return tipoServico; }
     public String getProblemaRelatado() { return problemaRelatado; }
     public String getDiagnostico() { return diagnostico; }
     public Integer getQuilometragem() { return quilometragem; }

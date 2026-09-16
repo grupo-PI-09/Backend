@@ -1,195 +1,221 @@
 package oficina.mecanica.backendOficina.Service;
 
-import oficina.mecanica.backendOficina.DTO.DashboardOrdemDTO;
+import oficina.mecanica.backendOficina.DTO.DashboardEvolucaoFaturamentoDTO;
+import oficina.mecanica.backendOficina.DTO.DashboardFaturamentoDTO;
+import oficina.mecanica.backendOficina.DTO.DashboardFaturamentoPeriodoDTO;
 import oficina.mecanica.backendOficina.DTO.DashboardPontoFinanceiroDTO;
-import oficina.mecanica.backendOficina.DTO.DashboardPontoNumericoDTO;
 import oficina.mecanica.backendOficina.DTO.DashboardResumoDTO;
-import oficina.mecanica.backendOficina.DTO.DashboardRevisaoMensalDTO;
-import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
-import oficina.mecanica.backendOficina.Model.StatusNotificacao;
+import oficina.mecanica.backendOficina.DTO.DashboardServicoPorTipoDTO;
+import oficina.mecanica.backendOficina.DTO.DashboardServicosPorTipoDTO;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
-import oficina.mecanica.backendOficina.Model.VeiculoModel;
+import oficina.mecanica.backendOficina.Model.TipoServico;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
-import oficina.mecanica.backendOficina.Repository.NotificacaoRepository;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
-import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+/**
+ * Painel financeiro. Faturamento = soma do valor_total das ordens finalizadas,
+ * pela data de fechamento. As comparações "vs período anterior" usam o mesmo
+ * período do ano anterior até o mesmo dia, para comparar bases equivalentes.
+ */
 @Service
 public class DashboardService {
 
-    private static final int MESES_SERIE = 6;
-    private static final DateTimeFormatter ROTULO_MES =
-            DateTimeFormatter.ofPattern("MMM/yy", Locale.forLanguageTag("pt-BR"));
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
+    private static final StatusOrdemServico STATUS_FATURADO = StatusOrdemServico.finalizada;
 
     private final ClienteRepository clienteRepository;
-    private final VeiculoRepository veiculoRepository;
     private final OrdemServicoRepository ordemServicoRepository;
-    private final NotificacaoRepository notificacaoRepository;
 
     public DashboardService(ClienteRepository clienteRepository,
-                            VeiculoRepository veiculoRepository,
-                            OrdemServicoRepository ordemServicoRepository,
-                            NotificacaoRepository notificacaoRepository) {
+                            OrdemServicoRepository ordemServicoRepository) {
         this.clienteRepository = clienteRepository;
-        this.veiculoRepository = veiculoRepository;
         this.ordemServicoRepository = ordemServicoRepository;
-        this.notificacaoRepository = notificacaoRepository;
     }
 
+    @Transactional(readOnly = true)
     public DashboardResumoDTO obterResumo() {
-        YearMonth mesAtual = YearMonth.now();
-        LocalDateTime inicioMes = inicioDoMes(mesAtual);
-        LocalDateTime fimMes = fimDoMes(mesAtual);
         LocalDateTime agora = LocalDateTime.now();
-        LocalDateTime fimRevisoes = agora.plusDays(30);
-
-        long totalClientes = clienteRepository.count();
-        long totalVeiculos = veiculoRepository.count();
-        long totalOrdens = ordemServicoRepository.count();
-        long abertasEmAndamento = ordemServicoRepository.countByStatusIn(List.of(
-                StatusOrdemServico.aberta,
-                StatusOrdemServico.em_andamento,
-                StatusOrdemServico.aguardando_aprovacao,
-                StatusOrdemServico.aguardando_peca
-        ));
-        long finalizadas = ordemServicoRepository.countByStatus(StatusOrdemServico.finalizada);
-        long finalizadasMes = ordemServicoRepository.countByStatusAndDataFechamentoBetween(
-                StatusOrdemServico.finalizada,
-                inicioMes,
-                fimMes
-        );
-        long novosClientesMes = clienteRepository.countByDataCadastroBetween(inicioMes, fimMes);
-        long proximasRevisoes = ordemServicoRepository.countByDataProximaRevisaoBetween(agora, fimRevisoes);
+        YearMonth mesAtual = YearMonth.from(agora);
 
         return new DashboardResumoDTO(
-                totalClientes,
-                totalVeiculos,
-                totalOrdens,
-                abertasEmAndamento,
-                finalizadas,
-                finalizadasMes,
-                novosClientesMes,
-                proximasRevisoes,
-                notificacaoRepository.countByStatus(StatusNotificacao.enviada),
-                valorOuZero(ordemServicoRepository.somarFaturamentoTotal()),
-                valorOuZero(ordemServicoRepository.somarFaturamentoPorStatusEDataFechamento(
-                        StatusOrdemServico.finalizada,
-                        inicioMes,
-                        fimMes
-                )),
-                ordemServicoRepository.findTop5ByOrderByDataAberturaDesc()
-                        .stream()
-                        .map(this::converterOrdem)
-                        .toList(),
-                ordemServicoRepository.findTop5ByDataProximaRevisaoBetweenOrderByDataProximaRevisaoAsc(agora, fimRevisoes)
-                        .stream()
-                        .map(this::converterOrdem)
-                        .toList(),
-                montarSerieFinalizacoes(mesAtual),
-                montarSerieFaturamento(mesAtual),
-                montarSerieRevisoes(mesAtual)
+                montarFaturamento(agora),
+                clienteRepository.count(),
+                clienteRepository.countByDataCadastroBetween(inicioDoMes(mesAtual), fimDoMes(mesAtual)),
+                montarComparativoMensal(mesAtual),
+                montarEvolucaoFaturamento(mesAtual),
+                montarServicosPorTipo(mesAtual)
         );
     }
 
-    private List<DashboardPontoNumericoDTO> montarSerieFinalizacoes(YearMonth mesAtual) {
-        List<DashboardPontoNumericoDTO> pontos = new ArrayList<>();
-        for (YearMonth mes : ultimosMeses(mesAtual)) {
-            pontos.add(new DashboardPontoNumericoDTO(
-                    rotulo(mes),
-                    ordemServicoRepository.countByStatusAndDataFechamentoBetween(
-                            StatusOrdemServico.finalizada,
-                            inicioDoMes(mes),
-                            fimDoMes(mes)
-                    )
-            ));
-        }
-        return pontos;
-    }
+    // ---------------------------------------------------------------------
+    // Card "Faturamento" (mensal / semestral / anual)
+    // ---------------------------------------------------------------------
 
-    private List<DashboardPontoFinanceiroDTO> montarSerieFaturamento(YearMonth mesAtual) {
-        List<DashboardPontoFinanceiroDTO> pontos = new ArrayList<>();
-        for (YearMonth mes : ultimosMeses(mesAtual)) {
-            pontos.add(new DashboardPontoFinanceiroDTO(
-                    rotulo(mes),
-                    valorOuZero(ordemServicoRepository.somarFaturamentoPorStatusEDataFechamento(
-                            StatusOrdemServico.finalizada,
-                            inicioDoMes(mes),
-                            fimDoMes(mes)
-                    ))
-            ));
-        }
-        return pontos;
-    }
+    private DashboardFaturamentoDTO montarFaturamento(LocalDateTime agora) {
+        YearMonth mesAtual = YearMonth.from(agora);
+        int ano = agora.getYear();
+        int semestre = agora.getMonthValue() <= 6 ? 1 : 2;
+        YearMonth inicioSemestre = YearMonth.of(ano, semestre == 1 ? 1 : 7);
 
-    private List<DashboardRevisaoMensalDTO> montarSerieRevisoes(YearMonth mesAtual) {
-        List<DashboardRevisaoMensalDTO> pontos = new ArrayList<>();
-        for (YearMonth mes : ultimosMeses(mesAtual)) {
-            long estimadas = ordemServicoRepository.countByDataProximaRevisaoBetween(inicioDoMes(mes), fimDoMes(mes));
-            long realizadas = ordemServicoRepository.countByStatusAndDataFechamentoBetween(
-                    StatusOrdemServico.finalizada,
-                    inicioDoMes(mes),
-                    fimDoMes(mes)
-            );
-
-            pontos.add(new DashboardRevisaoMensalDTO(rotulo(mes), realizadas, estimadas));
-        }
-        return pontos;
-    }
-
-    private List<YearMonth> ultimosMeses(YearMonth mesAtual) {
-        List<YearMonth> meses = new ArrayList<>();
-        for (int i = MESES_SERIE - 1; i >= 0; i--) {
-            meses.add(mesAtual.minusMonths(i));
-        }
-        return meses;
-    }
-
-    private DashboardOrdemDTO converterOrdem(OrdemServicoModel ordem) {
-        VeiculoModel veiculo = ordem.getVeiculo();
-        String modelo = veiculo != null ? veiculo.getModelo() : null;
-        String placa = veiculo != null ? veiculo.getPlaca() : null;
-
-        return new DashboardOrdemDTO(
-                ordem.getId(),
-                ordem.getCliente() != null ? ordem.getCliente().getNome() : "",
-                montarDescricaoVeiculo(modelo, placa),
-                placa,
-                modelo,
-                ordem.getStatus() != null ? ordem.getStatus().name() : "",
-                ordem.getDataAbertura(),
-                ordem.getDataProximaRevisao(),
-                valorOuZero(ordem.getValorTotal())
+        return new DashboardFaturamentoDTO(
+                montarPeriodo("mensal", inicioDoMes(mesAtual), agora,
+                        rotuloMesAno(mesAtual), rotuloMesAno(mesAtual.minusYears(1))),
+                montarPeriodo("semestral", inicioDoMes(inicioSemestre), agora,
+                        rotuloSemestre(semestre, ano), rotuloSemestre(semestre, ano - 1)),
+                montarPeriodo("anual", Year.of(ano).atDay(1).atStartOfDay(), agora,
+                        String.valueOf(ano), String.valueOf(ano - 1))
         );
     }
 
-    private String montarDescricaoVeiculo(String modelo, String placa) {
-        if (modelo != null && !modelo.isBlank() && placa != null && !placa.isBlank()) {
-            return modelo + " (" + placa + ")";
-        }
+    private DashboardFaturamentoPeriodoDTO montarPeriodo(String periodo, LocalDateTime inicio, LocalDateTime fim,
+                                                         String rotulo, String rotuloAnterior) {
+        BigDecimal atual = somarFaturamento(inicio, fim);
+        BigDecimal anterior = somarFaturamento(inicio.minusYears(1), fim.minusYears(1));
 
-        if (placa != null && !placa.isBlank()) {
-            return placa;
-        }
-
-        if (modelo != null && !modelo.isBlank()) {
-            return modelo;
-        }
-
-        return "Sem dados";
+        return new DashboardFaturamentoPeriodoDTO(periodo, rotulo, atual, rotuloAnterior, anterior,
+                variacaoPercentual(atual, anterior));
     }
 
-    private String rotulo(YearMonth mes) {
-        return mes.atDay(1).format(ROTULO_MES).replace(".", "");
+    private Double variacaoPercentual(BigDecimal atual, BigDecimal anterior) {
+        if (anterior == null || anterior.signum() == 0) {
+            return null;
+        }
+
+        return atual.subtract(anterior)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(anterior, 1, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    // ---------------------------------------------------------------------
+    // Gráfico "Faturamento mensal — comparativo anual"
+    // ---------------------------------------------------------------------
+
+    private List<DashboardPontoFinanceiroDTO> montarComparativoMensal(YearMonth mesAtual) {
+        YearMonth mesmoMesAnoAnterior = mesAtual.minusYears(1);
+
+        return List.of(
+                new DashboardPontoFinanceiroDTO(rotuloMesEspacoAno(mesmoMesAnoAnterior),
+                        somarFaturamento(inicioDoMes(mesmoMesAnoAnterior), fimDoMes(mesmoMesAnoAnterior))),
+                new DashboardPontoFinanceiroDTO(rotuloMesEspacoAno(mesAtual),
+                        somarFaturamento(inicioDoMes(mesAtual), fimDoMes(mesAtual)))
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // Gráfico "Evolução do faturamento" (jan → mês atual, ano atual x anterior)
+    // ---------------------------------------------------------------------
+
+    private DashboardEvolucaoFaturamentoDTO montarEvolucaoFaturamento(YearMonth mesAtual) {
+        int anoAtual = mesAtual.getYear();
+        int anoAnterior = anoAtual - 1;
+        int ultimoMes = mesAtual.getMonthValue();
+
+        Map<YearMonth, BigDecimal> faturamentoPorMes = faturamentoPorMes(
+                YearMonth.of(anoAnterior, 1).atDay(1).atStartOfDay(),
+                fimDoMes(mesAtual)
+        );
+
+        List<String> meses = new ArrayList<>();
+        List<BigDecimal> mensalAtual = new ArrayList<>();
+        List<BigDecimal> mensalAnterior = new ArrayList<>();
+        List<BigDecimal> acumuladoAtual = new ArrayList<>();
+        List<BigDecimal> acumuladoAnterior = new ArrayList<>();
+        BigDecimal somaAtual = BigDecimal.ZERO;
+        BigDecimal somaAnterior = BigDecimal.ZERO;
+
+        for (int mes = 1; mes <= ultimoMes; mes++) {
+            BigDecimal valorAtual = faturamentoPorMes.getOrDefault(YearMonth.of(anoAtual, mes), BigDecimal.ZERO);
+            BigDecimal valorAnterior = faturamentoPorMes.getOrDefault(YearMonth.of(anoAnterior, mes), BigDecimal.ZERO);
+            somaAtual = somaAtual.add(valorAtual);
+            somaAnterior = somaAnterior.add(valorAnterior);
+
+            meses.add(rotuloMesCurto(YearMonth.of(anoAtual, mes)));
+            mensalAtual.add(valorAtual);
+            mensalAnterior.add(valorAnterior);
+            acumuladoAtual.add(somaAtual);
+            acumuladoAnterior.add(somaAnterior);
+        }
+
+        return new DashboardEvolucaoFaturamentoDTO(anoAtual, anoAnterior, meses,
+                mensalAtual, mensalAnterior, acumuladoAtual, acumuladoAnterior);
+    }
+
+    private Map<YearMonth, BigDecimal> faturamentoPorMes(LocalDateTime inicio, LocalDateTime fim) {
+        Map<YearMonth, BigDecimal> resultado = new HashMap<>();
+        for (Object[] linha : ordemServicoRepository.somarFaturamentoPorMes(STATUS_FATURADO, inicio, fim)) {
+            int ano = ((Number) linha[0]).intValue();
+            int mes = ((Number) linha[1]).intValue();
+            resultado.put(YearMonth.of(ano, mes), valorOuZero((BigDecimal) linha[2]));
+        }
+        return resultado;
+    }
+
+    // ---------------------------------------------------------------------
+    // Gráfico "Preventiva vs corretiva — esperado x realizado" (mês atual)
+    // ---------------------------------------------------------------------
+
+    private DashboardServicosPorTipoDTO montarServicosPorTipo(YearMonth mesAtual) {
+        LocalDateTime inicio = inicioDoMes(mesAtual);
+        LocalDateTime fim = fimDoMes(mesAtual);
+
+        List<DashboardServicoPorTipoDTO> tipos = new ArrayList<>();
+        for (TipoServico tipo : TipoServico.values()) {
+            long esperado = ordemServicoRepository.countByTipoServicoAndStatusNotAndDataAberturaBetween(
+                    tipo, StatusOrdemServico.cancelada, inicio, fim);
+            long realizado = ordemServicoRepository.countByTipoServicoAndStatusAndDataFechamentoBetween(
+                    tipo, StatusOrdemServico.finalizada, inicio, fim);
+
+            tipos.add(new DashboardServicoPorTipoDTO(tipo.name(), capitalizar(tipo.name()), esperado, realizado));
+        }
+
+        return new DashboardServicosPorTipoDTO(rotuloMesAno(mesAtual), tipos);
+    }
+
+    // ---------------------------------------------------------------------
+    // Utilitários
+    // ---------------------------------------------------------------------
+
+    private BigDecimal somarFaturamento(LocalDateTime inicio, LocalDateTime fim) {
+        return valorOuZero(ordemServicoRepository.somarFaturamentoPorStatusEDataFechamento(STATUS_FATURADO, inicio, fim));
+    }
+
+    /** "set" */
+    private String rotuloMesCurto(YearMonth mes) {
+        return mes.getMonth().getDisplayName(TextStyle.SHORT, PT_BR).replace(".", "");
+    }
+
+    /** "set/2026" */
+    private String rotuloMesAno(YearMonth mes) {
+        return rotuloMesCurto(mes) + "/" + mes.getYear();
+    }
+
+    /** "Set 2026" */
+    private String rotuloMesEspacoAno(YearMonth mes) {
+        return capitalizar(rotuloMesCurto(mes)) + " " + mes.getYear();
+    }
+
+    /** "1º sem. 2026" */
+    private String rotuloSemestre(int semestre, int ano) {
+        return semestre + "º sem. " + ano;
+    }
+
+    private String capitalizar(String texto) {
+        return texto.substring(0, 1).toUpperCase(PT_BR) + texto.substring(1);
     }
 
     private LocalDateTime inicioDoMes(YearMonth mes) {
@@ -197,8 +223,7 @@ public class DashboardService {
     }
 
     private LocalDateTime fimDoMes(YearMonth mes) {
-        LocalDate primeiroDiaProximoMes = mes.plusMonths(1).atDay(1);
-        return primeiroDiaProximoMes.atStartOfDay().minusNanos(1);
+        return mes.plusMonths(1).atDay(1).atStartOfDay().minusNanos(1);
     }
 
     private BigDecimal valorOuZero(BigDecimal valor) {
