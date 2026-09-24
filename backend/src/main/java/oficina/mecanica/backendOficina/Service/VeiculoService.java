@@ -1,7 +1,6 @@
 package oficina.mecanica.backendOficina.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import oficina.mecanica.backendOficina.DTO.ConsultaPlacaRequest;
 import oficina.mecanica.backendOficina.DTO.ConsultaPlacaResponse;
 import oficina.mecanica.backendOficina.DTO.VeiculoDTORequest;
 import oficina.mecanica.backendOficina.DTO.VeiculoDTOResponse;
@@ -12,6 +11,7 @@ import oficina.mecanica.backendOficina.Repository.ClienteRepository;
 import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
 import oficina.mecanica.backendOficina.exceptions.ApiBrasilException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -26,9 +26,12 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 public class VeiculoService {
+
+    private static final Pattern PLACA_VALIDA = Pattern.compile("^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$");
 
     private final VeiculoRepository veiculoRepository;
     private final ClienteRepository clienteRepository;
@@ -75,20 +78,16 @@ public class VeiculoService {
                 .toList();
     }
 
-    public ConsultaPlacaResponse consultarPorPlaca(ConsultaPlacaRequest dto) {
-        return consultarPorPlaca(dto.getPlaca());
-    }
-
     public ConsultaPlacaResponse consultarPorPlaca(String placa) {
         if (apiBrasilToken == null || apiBrasilToken.isBlank()) {
             throw new ApiBrasilException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    HttpStatus.SERVICE_UNAVAILABLE,
                     "Não foi possível consultar a placa",
                     "Token da APIBrasil não configurado"
             );
         }
 
-        String placaNormalizada = normalizarPlaca(placa);
+        String placaNormalizada = validarPlaca(placa);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -139,9 +138,13 @@ public class VeiculoService {
                     extrairTexto(root, "data.data[0].anoModelo", "data.data[0].anoFabricacao", "data.veiculo.ano", "ano")
             );
         } catch (HttpStatusCodeException ex) {
-            HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+            // O status da API externa nao e repassado: um 401/403 da APIBrasil
+            // (token dela invalido) faria o front achar que a sessao do usuario expirou.
+            HttpStatus status = ex.getStatusCode().value() == 404
+                    ? HttpStatus.NOT_FOUND
+                    : HttpStatus.BAD_GATEWAY;
             throw new ApiBrasilException(
-                    status != null ? status : HttpStatus.BAD_GATEWAY,
+                    status,
                     "Não foi possível consultar a placa",
                     ex.getResponseBodyAsString()
             );
@@ -158,13 +161,18 @@ public class VeiculoService {
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
+        String placa = validarPlaca(dto.getPlaca());
+        if (veiculoRepository.existsByPlaca(placa)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Placa já cadastrada");
+        }
+
         VeiculoModel veiculo = new VeiculoModel();
-        veiculo.setPlaca(dto.getPlaca());
-        veiculo.setModelo(dto.getModelo());
-        veiculo.setMarca(dto.getMarca());
+        veiculo.setPlaca(placa);
+        veiculo.setModelo(dto.getModelo().trim());
+        veiculo.setMarca(dto.getMarca().trim());
         veiculo.setAno(dto.getAno());
         veiculo.setQuilometragem(dto.getQuilometragem());
-        veiculo.setTipoCombustivel(TipoCombustivel.valueOf(dto.getTipoCombustivel().toLowerCase()));
+        veiculo.setTipoCombustivel(parseTipoCombustivel(dto.getTipoCombustivel()));
         veiculo.setAtivo(dto.getAtivo() != null ? dto.getAtivo() : true);
         veiculo.setCliente(cliente);
 
@@ -179,12 +187,17 @@ public class VeiculoService {
         ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
-        veiculo.setPlaca(dto.getPlaca());
-        veiculo.setModelo(dto.getModelo());
-        veiculo.setMarca(dto.getMarca());
+        String placa = validarPlaca(dto.getPlaca());
+        if (veiculoRepository.existsByPlacaAndIdNot(placa, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Placa já cadastrada");
+        }
+
+        veiculo.setPlaca(placa);
+        veiculo.setModelo(dto.getModelo().trim());
+        veiculo.setMarca(dto.getMarca().trim());
         veiculo.setAno(dto.getAno());
         veiculo.setQuilometragem(dto.getQuilometragem());
-        veiculo.setTipoCombustivel(TipoCombustivel.valueOf(dto.getTipoCombustivel().toLowerCase()));
+        veiculo.setTipoCombustivel(parseTipoCombustivel(dto.getTipoCombustivel()));
         if (dto.getAtivo() != null) {
             veiculo.setAtivo(dto.getAtivo());
         }
@@ -199,10 +212,18 @@ public class VeiculoService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado");
         }
 
-        veiculoRepository.deleteById(id);
+        try {
+            veiculoRepository.deleteById(id);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Veículo possui ordens de serviço ou notificações e não pode ser excluído. "
+                            + "Desative o veículo em vez de excluí-lo.");
+        }
     }
 
     private VeiculoDTOResponse converterParaResponse(VeiculoModel veiculo) {
+        ClienteModel cliente = veiculo.getCliente();
+
         return new VeiculoDTOResponse(
                 veiculo.getId(),
                 veiculo.getPlaca(),
@@ -210,12 +231,33 @@ public class VeiculoService {
                 veiculo.getMarca(),
                 veiculo.getAno(),
                 veiculo.getQuilometragem(),
-                veiculo.getTipoCombustivel().name(),
+                veiculo.getTipoCombustivel() != null ? veiculo.getTipoCombustivel().name() : null,
                 veiculo.getAtivo(),
                 veiculo.getDataCriacao(),
-                veiculo.getCliente().getId(),
-                veiculo.getCliente().getNome()
+                cliente != null ? cliente.getId() : null,
+                cliente != null ? cliente.getNome() : null
         );
+    }
+
+    private TipoCombustivel parseTipoCombustivel(String tipoCombustivel) {
+        try {
+            return TipoCombustivel.valueOf(tipoCombustivel.trim().toLowerCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tipo de combustível inválido. Use gasolina, etanol, flex ou diesel.");
+        }
+    }
+
+    /** Placa antiga (ABC1234) ou Mercosul (ABC1D23), gravada sem hifen e em maiusculas. */
+    private String validarPlaca(String placa) {
+        String placaNormalizada = normalizarPlaca(placa);
+
+        if (!PLACA_VALIDA.matcher(placaNormalizada).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Placa inválida. Use o formato ABC1234 ou ABC1D23.");
+        }
+
+        return placaNormalizada;
     }
 
     private String normalizarPlaca(String placa) {

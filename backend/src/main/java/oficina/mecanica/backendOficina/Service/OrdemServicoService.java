@@ -15,34 +15,45 @@ import oficina.mecanica.backendOficina.notificacao.usecase.AgendarLembreteRevisa
 import oficina.mecanica.backendOficina.notificacao.usecase.NotificarFinalizacaoOrdemUseCase;
 import oficina.mecanica.backendOficina.notificacao.usecase.OrdemParaNotificar;
 import oficina.mecanica.backendOficina.notificacao.usecase.ResultadoNotificacao;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 @Service
 public class OrdemServicoService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrdemServicoService.class);
 
     private final OrdemServicoRepository ordemServicoRepository;
     private final ClienteRepository clienteRepository;
     private final VeiculoRepository veiculoRepository;
     private final NotificarFinalizacaoOrdemUseCase notificarFinalizacao;
     private final AgendarLembreteRevisaoUseCase agendarLembreteRevisao;
+    private final TransactionTemplate transactionTemplate;
 
     public OrdemServicoService(OrdemServicoRepository ordemServicoRepository,
                                ClienteRepository clienteRepository,
                                VeiculoRepository veiculoRepository,
                                NotificarFinalizacaoOrdemUseCase notificarFinalizacao,
-                               AgendarLembreteRevisaoUseCase agendarLembreteRevisao) {
+                               AgendarLembreteRevisaoUseCase agendarLembreteRevisao,
+                               PlatformTransactionManager transactionManager) {
         this.ordemServicoRepository = ordemServicoRepository;
         this.clienteRepository = clienteRepository;
         this.veiculoRepository = veiculoRepository;
         this.notificarFinalizacao = notificarFinalizacao;
         this.agendarLembreteRevisao = agendarLembreteRevisao;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public List<OrdemServicoDTOResponse> listar() {
@@ -74,13 +85,21 @@ public class OrdemServicoService {
                 .toList();
     }
 
-    @Transactional
     public OrdemServicoDTOResponse criar(OrdemServicoDTORequest dto) {
-        ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
+        OrdemSalva salva = transactionTemplate.execute(status -> criarNaTransacao(dto));
+        notificarAposSalvar(salva);
+        return salva.response();
+    }
 
-        VeiculoModel veiculo = veiculoRepository.findById(dto.getVeiculoId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
+    public OrdemServicoDTOResponse atualizar(Long id, OrdemServicoDTORequest dto) {
+        OrdemSalva salva = transactionTemplate.execute(status -> atualizarNaTransacao(id, dto));
+        notificarAposSalvar(salva);
+        return salva.response();
+    }
+
+    private OrdemSalva criarNaTransacao(OrdemServicoDTORequest dto) {
+        ClienteModel cliente = buscarCliente(dto.getClienteId());
+        VeiculoModel veiculo = buscarVeiculoDoCliente(dto.getVeiculoId(), cliente);
 
         OrdemServicoModel ordemServico = new OrdemServicoModel();
         ordemServico.setCliente(cliente);
@@ -89,22 +108,24 @@ public class OrdemServicoService {
         sincronizarQuilometragemVeiculo(veiculo, dto.getQuilometragem());
 
         OrdemServicoModel salva = ordemServicoRepository.save(ordemServico);
-        return converterParaResponse(salva);
+
+        // Uma OS ja criada como finalizada tambem avisa o cliente.
+        AcaoNotificacao acao = salva.getStatus() == StatusOrdemServico.finalizada
+                ? AcaoNotificacao.FINALIZACAO
+                : AcaoNotificacao.NENHUMA;
+
+        return new OrdemSalva(converterParaResponse(salva), OrdemParaNotificarMapper.de(salva), acao);
     }
 
-    @Transactional
-    public OrdemServicoDTOResponse atualizar(Long id, OrdemServicoDTORequest dto) {
+    private OrdemSalva atualizarNaTransacao(Long id, OrdemServicoDTORequest dto) {
         OrdemServicoModel ordemServico = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de serviço não encontrada"));
 
-        ClienteModel cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
+        ClienteModel cliente = buscarCliente(dto.getClienteId());
+        VeiculoModel veiculo = buscarVeiculoDoCliente(dto.getVeiculoId(), cliente);
 
-        VeiculoModel veiculo = veiculoRepository.findById(dto.getVeiculoId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
-
-        boolean deveNotificarFinalizacao = ordemServico.getStatus() != StatusOrdemServico.finalizada
-                && parseStatus(dto.getStatus()) == StatusOrdemServico.finalizada;
+        boolean estavaFinalizada = ordemServico.getStatus() == StatusOrdemServico.finalizada;
+        LocalDateTime revisaoAnterior = ordemServico.getDataProximaRevisao();
 
         ordemServico.setCliente(cliente);
         ordemServico.setVeiculo(veiculo);
@@ -112,13 +133,34 @@ public class OrdemServicoService {
         sincronizarQuilometragemVeiculo(veiculo, dto.getQuilometragem());
 
         OrdemServicoModel atualizada = ordemServicoRepository.save(ordemServico);
-        OrdemServicoDTOResponse response = converterParaResponse(atualizada);
+        boolean ficouFinalizada = atualizada.getStatus() == StatusOrdemServico.finalizada;
 
-        if (deveNotificarFinalizacao) {
-            adicionarResultadoNotificacoesFinalizacao(atualizada, response);
+        AcaoNotificacao acao = AcaoNotificacao.NENHUMA;
+        if (!estavaFinalizada && ficouFinalizada) {
+            acao = AcaoNotificacao.FINALIZACAO;
+        } else if (estavaFinalizada && !ficouFinalizada) {
+            acao = AcaoNotificacao.CANCELAR_REVISAO;
+        } else if (ficouFinalizada && !Objects.equals(revisaoAnterior, atualizada.getDataProximaRevisao())) {
+            acao = AcaoNotificacao.REAGENDAR_REVISAO;
         }
 
-        return response;
+        return new OrdemSalva(converterParaResponse(atualizada), OrdemParaNotificarMapper.de(atualizada), acao);
+    }
+
+    private ClienteModel buscarCliente(Long clienteId) {
+        return clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
+    }
+
+    private VeiculoModel buscarVeiculoDoCliente(Long veiculoId, ClienteModel cliente) {
+        VeiculoModel veiculo = veiculoRepository.findById(veiculoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Veículo não encontrado"));
+
+        if (veiculo.getCliente() == null || !Objects.equals(veiculo.getCliente().getId(), cliente.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O veículo informado não pertence ao cliente");
+        }
+
+        return veiculo;
     }
 
     private void aplicarDadosDto(OrdemServicoModel ordemServico, OrdemServicoDTORequest dto) {
@@ -137,14 +179,24 @@ public class OrdemServicoService {
         ordemServico.setDataProximaRevisao(dto.getDataProximaRevisao());
 
         if (status == StatusOrdemServico.finalizada) {
-            ordemServico.setDataFechamento(dto.getDataFechamento() != null ? dto.getDataFechamento() : LocalDateTime.now());
+            if (dto.getDataFechamento() != null) {
+                ordemServico.setDataFechamento(dto.getDataFechamento());
+            } else if (ordemServico.getDataFechamento() == null) {
+                ordemServico.setDataFechamento(LocalDateTime.now());
+            }
         } else {
             ordemServico.setDataFechamento(dto.getDataFechamento());
         }
     }
 
     private StatusOrdemServico parseStatus(String status) {
-        return StatusOrdemServico.valueOf(status.toLowerCase());
+        try {
+            return StatusOrdemServico.valueOf(status.trim().toLowerCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Status inválido. Use aberta, em_andamento, aguardando_aprovacao, "
+                            + "aguardando_peca, finalizada ou cancelada.");
+        }
     }
 
     private TipoServico parseTipoServico(String tipoServico) {
@@ -153,7 +205,7 @@ public class OrdemServicoService {
         }
 
         try {
-            return TipoServico.valueOf(tipoServico.trim().toLowerCase());
+            return TipoServico.valueOf(tipoServico.trim().toLowerCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Tipo de serviço inválido. Use 'preventiva' ou 'corretiva'.");
@@ -165,22 +217,41 @@ public class OrdemServicoService {
             return;
         }
 
+        if (veiculo.getQuilometragem() != null && quilometragem <= veiculo.getQuilometragem()) {
+            return;
+        }
+
         veiculo.setQuilometragem(quilometragem);
         veiculoRepository.save(veiculo);
     }
 
-    private void adicionarResultadoNotificacoesFinalizacao(OrdemServicoModel ordemServico,
-                                                           OrdemServicoDTOResponse response) {
-        OrdemParaNotificar ordem = OrdemParaNotificarMapper.de(ordemServico);
+    private void notificarAposSalvar(OrdemSalva salva) {
+        try {
+            switch (salva.acao()) {
+                case FINALIZACAO -> adicionarResultadoNotificacoesFinalizacao(salva.ordem(), salva.response());
+                case REAGENDAR_REVISAO -> adicionarResultadoLembreteRevisao(salva.ordem(), salva.response());
+                case CANCELAR_REVISAO -> agendarLembreteRevisao.cancelar(salva.ordem().id());
+                case NENHUMA -> {
+                }
+            }
+        } catch (RuntimeException e) {
+            log.error("Falha ao processar notificações da OS {}", salva.ordem().id(), e);
+            salva.response().adicionarAviso("Ordem salva, mas não foi possível registrar as notificações.");
+        }
+    }
 
+    private void adicionarResultadoNotificacoesFinalizacao(OrdemParaNotificar ordem,
+                                                           OrdemServicoDTOResponse response) {
         ResultadoNotificacao finalizacao = notificarFinalizacao.executar(ordem);
         response.setMensagemFinalizacaoEnviada(finalizacao.enviada());
         response.adicionarAviso(finalizacao.aviso());
 
-        if (ordemServico.getDataProximaRevisao() == null) {
-            return;
+        if (ordem.dataProximaRevisao() != null) {
+            adicionarResultadoLembreteRevisao(ordem, response);
         }
+    }
 
+    private void adicionarResultadoLembreteRevisao(OrdemParaNotificar ordem, OrdemServicoDTOResponse response) {
         ResultadoNotificacao revisao = agendarLembreteRevisao.executar(ordem);
         response.setLembreteRevisaoAgendado(revisao.agendada());
         response.setLembreteRevisaoEnviadoImediatamente(revisao.enviadaImediatamente());
@@ -193,7 +264,13 @@ public class OrdemServicoService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de serviço não encontrada");
         }
 
-        ordemServicoRepository.deleteById(id);
+        try {
+            ordemServicoRepository.deleteById(id);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ordem de serviço possui notificações registradas e não pode ser excluída. "
+                            + "Altere o status para cancelada.");
+        }
     }
 
     private OrdemServicoDTOResponse converterParaResponse(OrdemServicoModel ordemServico) {
@@ -217,5 +294,15 @@ public class OrdemServicoService {
                 ordemServico.getObservacoes(),
                 ordemServico.getDataProximaRevisao()
         );
+    }
+
+    private enum AcaoNotificacao {
+        NENHUMA,
+        FINALIZACAO,
+        REAGENDAR_REVISAO,
+        CANCELAR_REVISAO
+    }
+
+    private record OrdemSalva(OrdemServicoDTOResponse response, OrdemParaNotificar ordem, AcaoNotificacao acao) {
     }
 }

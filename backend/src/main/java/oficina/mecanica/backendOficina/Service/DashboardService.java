@@ -177,7 +177,8 @@ public class DashboardService {
         for (TipoServico tipo : TipoServico.values()) {
             long esperado = ordemServicoRepository.countByTipoServicoAndStatusNotAndDataAberturaBetween(
                     tipo, StatusOrdemServico.cancelada, inicio, fim);
-            long realizado = ordemServicoRepository.countByTipoServicoAndStatusAndDataFechamentoBetween(
+            // Mesmo grupo do "esperado" (abertas no mes): realizado nunca passa do esperado.
+            long realizado = ordemServicoRepository.countByTipoServicoAndStatusAndDataAberturaBetween(
                     tipo, StatusOrdemServico.finalizada, inicio, fim);
 
             tipos.add(new DashboardServicoPorTipoDTO(tipo.name(), capitalizar(tipo.name()), esperado, realizado));

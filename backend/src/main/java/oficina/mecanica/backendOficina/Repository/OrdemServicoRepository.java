@@ -66,9 +66,9 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServicoModel,
                                                               LocalDateTime inicio,
                                                               LocalDateTime fim);
 
-    /** Ordens do tipo com o status informado fechadas no intervalo. */
-    long countByTipoServicoAndStatusAndDataFechamentoBetween(TipoServico tipoServico,
-                                                             StatusOrdemServico status,
-                                                             LocalDateTime inicio,
-                                                             LocalDateTime fim);
+    /** Ordens do tipo abertas no intervalo que estão com o status informado. */
+    long countByTipoServicoAndStatusAndDataAberturaBetween(TipoServico tipoServico,
+                                                           StatusOrdemServico status,
+                                                           LocalDateTime inicio,
+                                                           LocalDateTime fim);
 }

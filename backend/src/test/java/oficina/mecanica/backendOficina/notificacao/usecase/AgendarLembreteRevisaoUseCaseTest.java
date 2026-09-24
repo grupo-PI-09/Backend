@@ -9,15 +9,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -69,7 +68,7 @@ class AgendarLembreteRevisaoUseCaseTest {
         assertEquals("11999998888", enviador.enviadas.get(0));
         assertEquals(StatusNotificacao.enviada, gateway.registradas.get(0).status());
         assertEquals(AGORA, gateway.registradas.get(0).dataEnvio());
-        assertTrue(agendador.processados.contains(1L));
+        assertEquals(AGORA.plusDays(3), agendador.processados.get(1L));
     }
 
     @Test
@@ -87,30 +86,60 @@ class AgendarLembreteRevisaoUseCaseTest {
     }
 
     @Test
-    void semDataDeRevisaoNaoFazNada() {
+    void semDataDeRevisaoCancelaLembreteExistente() {
+        agendador.agendados.put(1L, AGORA.plusDays(23));
+
         ResultadoNotificacao resultado = useCase.executar(ordem(null));
 
         assertFalse(resultado.enviada());
         assertFalse(resultado.agendada());
         assertTrue(gateway.registradas.isEmpty());
         assertTrue(enviador.enviadas.isEmpty());
+        assertTrue(agendador.agendados.isEmpty());
+        assertEquals(List.of(1L), gateway.pendentesDescartados);
     }
 
     @Test
     void tarefaAgendadaEnviaEAtualizaNotificacaoPendente() {
-        useCase.executar(ordem(AGORA.plusDays(30)));
+        OrdemParaNotificar ordem = ordem(AGORA.plusDays(30));
+        useCase.executar(ordem);
+        gateway.ordemAtual = ordem;
 
         agendador.tarefa.run();
 
         assertEquals(1, enviador.enviadas.size());
         assertEquals(Long.valueOf(100L), gateway.resultadoId);
         assertTrue(gateway.resultadoEnviada);
-        assertTrue(agendador.processados.contains(1L));
+        assertEquals(AGORA.plusDays(30), agendador.processados.get(1L));
     }
 
     @Test
-    void naoReagendaQuandoJaExisteAgendamento() {
-        agendador.agendados.add(1L);
+    void tarefaAgendadaNaoEnviaQuandoOrdemNaoEstaMaisFinalizada() {
+        useCase.executar(ordem(AGORA.plusDays(30)));
+        gateway.ordemAtual = null;
+
+        agendador.tarefa.run();
+
+        assertTrue(enviador.enviadas.isEmpty());
+        assertNull(gateway.resultadoId);
+        assertEquals(List.of(1L), gateway.pendentesDescartados);
+    }
+
+    @Test
+    void tarefaAgendadaNaoEnviaQuandoDataDaRevisaoMudou() {
+        useCase.executar(ordem(AGORA.plusDays(30)));
+        gateway.ordemAtual = ordem(AGORA.plusDays(40));
+
+        agendador.tarefa.run();
+
+        assertTrue(enviador.enviadas.isEmpty());
+        assertNull(gateway.resultadoId);
+        assertTrue(gateway.pendentesDescartados.isEmpty());
+    }
+
+    @Test
+    void naoReagendaQuandoJaExisteAgendamentoNaMesmaData() {
+        agendador.agendados.put(1L, AGORA.plusDays(23));
 
         ResultadoNotificacao resultado = useCase.executar(ordem(AGORA.plusDays(30)));
 
@@ -118,6 +147,28 @@ class AgendarLembreteRevisaoUseCaseTest {
         assertEquals("Lembrete de revisão já estava agendado.", resultado.mensagem());
         assertTrue(gateway.registradas.isEmpty());
         assertNull(agendador.tarefa);
+    }
+
+    @Test
+    void reagendaQuandoDataDaRevisaoMuda() {
+        agendador.agendados.put(1L, AGORA.plusDays(23));
+
+        ResultadoNotificacao resultado = useCase.executar(ordem(AGORA.plusDays(40)));
+
+        assertTrue(resultado.agendada());
+        assertEquals(AGORA.plusDays(33), agendador.quando);
+        assertEquals(AGORA.plusDays(33), agendador.agendados.get(1L));
+        assertEquals(List.of(1L), agendador.cancelados);
+    }
+
+    @Test
+    void enviaDeNovoQuandoRevisaoJaProcessadaMudaDeData() {
+        agendador.processados.put(1L, AGORA.plusDays(2));
+
+        ResultadoNotificacao resultado = useCase.executar(ordem(AGORA.plusDays(3)));
+
+        assertTrue(resultado.enviadaImediatamente());
+        assertEquals(1, enviador.enviadas.size());
     }
 
     private static OrdemParaNotificar ordem(LocalDateTime dataRevisao) {
@@ -137,6 +188,8 @@ class AgendarLembreteRevisaoUseCaseTest {
 
     private static class GatewayFake implements NotificacaoGateway {
         final List<NovaNotificacao> registradas = new ArrayList<>();
+        final List<Long> pendentesDescartados = new ArrayList<>();
+        OrdemParaNotificar ordemAtual;
         Long resultadoId;
         boolean resultadoEnviada;
 
@@ -157,34 +210,52 @@ class AgendarLembreteRevisaoUseCaseTest {
             resultadoId = notificacaoId;
             resultadoEnviada = enviada;
         }
+
+        @Override
+        public void descartarLembretesPendentes(Long ordemServicoId) {
+            pendentesDescartados.add(ordemServicoId);
+        }
+
+        @Override
+        public Optional<OrdemParaNotificar> buscarOrdemFinalizada(Long ordemServicoId) {
+            return Optional.ofNullable(ordemAtual);
+        }
     }
 
     private static class AgendadorFake implements AgendadorDeLembrete {
-        final Set<Long> agendados = new HashSet<>();
-        final Set<Long> processados = new HashSet<>();
+        final Map<Long, LocalDateTime> agendados = new HashMap<>();
+        final Map<Long, LocalDateTime> processados = new HashMap<>();
+        final List<Long> cancelados = new ArrayList<>();
         LocalDateTime quando;
         Runnable tarefa;
 
         @Override
-        public boolean estaAgendado(Long ordemServicoId) {
-            return agendados.contains(ordemServicoId);
+        public boolean estaAgendado(Long ordemServicoId, LocalDateTime quando) {
+            return quando.equals(agendados.get(ordemServicoId));
         }
 
         @Override
-        public boolean foiProcessado(Long ordemServicoId) {
-            return processados.contains(ordemServicoId);
+        public boolean foiProcessado(Long ordemServicoId, LocalDateTime dataRevisao) {
+            return dataRevisao.equals(processados.get(ordemServicoId));
         }
 
         @Override
-        public void marcarProcessado(Long ordemServicoId) {
-            processados.add(ordemServicoId);
+        public void marcarProcessado(Long ordemServicoId, LocalDateTime dataRevisao) {
+            processados.put(ordemServicoId, dataRevisao);
         }
 
         @Override
         public void agendar(Long ordemServicoId, LocalDateTime quando, Runnable tarefa) {
             this.quando = quando;
             this.tarefa = tarefa;
-            agendados.add(ordemServicoId);
+            agendados.put(ordemServicoId, quando);
+        }
+
+        @Override
+        public void cancelar(Long ordemServicoId) {
+            if (agendados.remove(ordemServicoId) != null) {
+                cancelados.add(ordemServicoId);
+            }
         }
     }
 }

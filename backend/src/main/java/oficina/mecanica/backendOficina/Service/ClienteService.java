@@ -4,6 +4,7 @@ import oficina.mecanica.backendOficina.DTO.ClienteDTORequest;
 import oficina.mecanica.backendOficina.DTO.ClienteDTOResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -45,12 +46,17 @@ public class ClienteService {
     }
 
     public ClienteDTOResponse criar(ClienteDTORequest dto) {
+        String cpf = validarCpf(dto.getCpf());
+        if (clienteRepository.existsByCpf(cpf)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF já cadastrado");
+        }
+
         ClienteModel cliente = new ClienteModel();
 
-        cliente.setNome(dto.getNome());
-        cliente.setCpf(normalizarApenasDigitos(dto.getCpf()));
+        cliente.setNome(dto.getNome().trim());
+        cliente.setCpf(cpf);
         cliente.setDtNascimento(dto.getDtNascimento());
-        cliente.setTelefone(dto.getTelefone());
+        cliente.setTelefone(validarTelefone(dto.getTelefone()));
         cliente.setEmail(dto.getEmail());
         preencherEndereco(cliente, dto);
         cliente.setAtivo(dto.getAtivo() != null ? dto.getAtivo() : true);
@@ -63,10 +69,15 @@ public class ClienteService {
         ClienteModel cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado"));
 
-        cliente.setNome(dto.getNome());
-        cliente.setCpf(normalizarApenasDigitos(dto.getCpf()));
+        String cpf = validarCpf(dto.getCpf());
+        if (clienteRepository.existsByCpfAndIdNot(cpf, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF já cadastrado");
+        }
+
+        cliente.setNome(dto.getNome().trim());
+        cliente.setCpf(cpf);
         cliente.setDtNascimento(dto.getDtNascimento());
-        cliente.setTelefone(dto.getTelefone());
+        cliente.setTelefone(validarTelefone(dto.getTelefone()));
         cliente.setEmail(dto.getEmail());
         preencherEndereco(cliente, dto);
         if (dto.getAtivo() != null) {
@@ -82,7 +93,59 @@ public class ClienteService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente não encontrado");
         }
 
-        clienteRepository.deleteById(id);
+        try {
+            clienteRepository.deleteById(id);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cliente possui veículos, ordens de serviço ou notificações e não pode ser excluído. "
+                            + "Desative o cliente em vez de excluí-lo.");
+        }
+    }
+
+    private String validarCpf(String cpfInformado) {
+        String cpf = normalizarApenasDigitos(cpfInformado);
+
+        if (cpf == null || !cpfValido(cpf)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CPF inválido");
+        }
+
+        return cpf;
+    }
+
+    /** Confere os dois digitos verificadores do CPF. */
+    private boolean cpfValido(String cpf) {
+        if (cpf.length() != 11 || cpf.chars().distinct().count() == 1) {
+            return false;
+        }
+
+        for (int posicao = 9; posicao <= 10; posicao++) {
+            int soma = 0;
+            for (int i = 0; i < posicao; i++) {
+                soma += (cpf.charAt(i) - '0') * (posicao + 1 - i);
+            }
+            int digito = (soma * 10) % 11 % 10;
+            if (digito != cpf.charAt(posicao) - '0') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Guarda so os digitos: a coluna tem 11 posicoes (DDD + numero). */
+    private String validarTelefone(String telefoneInformado) {
+        String telefone = normalizarApenasDigitos(telefoneInformado);
+
+        if (telefone != null && telefone.length() > 11 && telefone.startsWith("55")) {
+            telefone = telefone.substring(2);
+        }
+
+        if (telefone == null || telefone.length() < 10 || telefone.length() > 11) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Telefone deve conter DDD e número (10 ou 11 dígitos)");
+        }
+
+        return telefone;
     }
 
     private ClienteDTOResponse converterParaResponse(ClienteModel cliente) {

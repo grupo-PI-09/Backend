@@ -38,3 +38,6 @@ build/
 application-local.properties
 application-prod.properties
 src/main/resources/application-local.properties
+
+### macOS ###
+.DS_Store

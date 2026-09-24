@@ -27,6 +27,10 @@ public interface NotificacaoRepository extends JpaRepository<NotificacaoModel, L
                                                                         TipoNotificacao tipo,
                                                                         StatusNotificacao status);
 
+    List<NotificacaoModel> findByOrdemServicoIdAndTipoAndStatus(Long ordemServicoId,
+                                                                TipoNotificacao tipo,
+                                                                StatusNotificacao status);
+
     long countByStatus(StatusNotificacao status);
 
     long countByLidaFalse();

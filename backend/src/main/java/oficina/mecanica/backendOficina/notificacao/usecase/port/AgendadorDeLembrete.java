@@ -8,11 +8,16 @@ import java.time.LocalDateTime;
  */
 public interface AgendadorDeLembrete {
 
-    boolean estaAgendado(Long ordemServicoId);
+    /** Indica se já existe lembrete agendado para a OS exatamente nesse horário. */
+    boolean estaAgendado(Long ordemServicoId, LocalDateTime quando);
 
-    boolean foiProcessado(Long ordemServicoId);
+    /** Indica se o lembrete da OS para essa data de revisão já foi enviado. */
+    boolean foiProcessado(Long ordemServicoId, LocalDateTime dataRevisao);
 
-    void marcarProcessado(Long ordemServicoId);
+    void marcarProcessado(Long ordemServicoId, LocalDateTime dataRevisao);
 
     void agendar(Long ordemServicoId, LocalDateTime quando, Runnable tarefa);
+
+    /** Cancela o lembrete agendado da OS, se houver. */
+    void cancelar(Long ordemServicoId);
 }

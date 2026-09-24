@@ -5,9 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import oficina.mecanica.backendOficina.Model.UsuarioModel;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -16,12 +14,16 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private final String secret;
+    private final SecretKey signingKey;
     private final long expirationMs;
 
+    /**
+     * O segredo e validado na inicializacao: sem ele (ou curto demais) a
+     * aplicacao nao sobe, em vez de falhar so no primeiro login (fail secure).
+     */
     public JwtService(@Value("${app.jwt.secret:}") String secret,
-                      @Value("${app.jwt.expiration:86400000}") long expirationMs) {
-        this.secret = secret;
+                      @Value("${app.jwt.expiration:3600000}") long expirationMs) {
+        this.signingKey = criarChave(secret);
         this.expirationMs = expirationMs;
     }
 
@@ -57,22 +59,15 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        if (secret == null || secret.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "JWT não configurado. Defina APP_JWT_SECRET com pelo menos 32 caracteres"
-            );
+        return signingKey;
+    }
+
+    private static SecretKey criarChave(String secret) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                    "JWT não configurado. Defina APP_JWT_SECRET com pelo menos 32 caracteres");
         }
 
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-
-        if (keyBytes.length < 32) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "JWT não configurado. Defina APP_JWT_SECRET com pelo menos 32 caracteres"
-            );
-        }
-
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -3,14 +3,21 @@ package oficina.mecanica.backendOficina.exceptions;
 import oficina.mecanica.backendOficina.DTO.ApiErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -73,6 +80,65 @@ public class GlobalExceptionHandler {
         // o status e detalhes internos concatenados.
         return ResponseEntity.status(ex.getStatusCode()).body(
                 new ApiErrorResponse(true, ex.getReason(), null)
+        );
+    }
+
+    /** JSON malformado, data em formato errado etc. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleCorpoIlegivel(HttpMessageNotReadableException ex) {
+        log.debug("Corpo da requisicao ilegivel: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(
+                new ApiErrorResponse(true, "Corpo da requisição inválido", null)
+        );
+    }
+
+    /** Ex.: /clientes/abc quando o id esperado e numerico. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTipoInvalido(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(
+                new ApiErrorResponse(true, "Parâmetro '" + ex.getName() + "' inválido", null)
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleParametroAusente(MissingServletRequestParameterException ex) {
+        return ResponseEntity.badRequest().body(
+                new ApiErrorResponse(true, "Parâmetro '" + ex.getParameterName() + "' é obrigatório", null)
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleRotaInexistente(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ApiErrorResponse(true, "Recurso não encontrado", null)
+        );
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(
+                new ApiErrorResponse(true, "Método não suportado", null)
+        );
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMediaTypeNaoSuportado(HttpMediaTypeNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(
+                new ApiErrorResponse(true, "Tipo de conteúdo não suportado", null)
+        );
+    }
+
+    /**
+     * Violacao de restricao do banco (chave estrangeira, unicidade, tamanho de
+     * coluna). O detalhe SQL fica apenas no log (OWASP A05).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleIntegridade(DataIntegrityViolationException ex) {
+        String idErro = UUID.randomUUID().toString().substring(0, 8);
+        log.warn("Violacao de integridade [{}]: {}", idErro, ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ApiErrorResponse(true, "Operação conflita com dados existentes",
+                        "Código de referência: " + idErro)
         );
     }
 

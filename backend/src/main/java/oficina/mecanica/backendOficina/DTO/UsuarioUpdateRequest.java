@@ -26,6 +26,21 @@ public class UsuarioUpdateRequest {
     )
     private String senha;
 
+    /**
+     * Obrigatoria para trocar senha ou email: um token roubado sozinho nao
+     * basta para tomar a conta (OWASP A07).
+     */
+    @Size(max = 72, message = "Senha atual inválida")
+    private String senhaAtual;
+
+    public String getSenhaAtual() {
+        return senhaAtual;
+    }
+
+    public void setSenhaAtual(String senhaAtual) {
+        this.senhaAtual = senhaAtual;
+    }
+
     public String getNome() {
         return nome;
     }

@@ -11,12 +11,16 @@ import oficina.mecanica.backendOficina.notificacao.usecase.port.NotificacaoGatew
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Regra do lembrete de revisão preventiva: o cliente é avisado
  * {@value #DIAS_ANTECEDENCIA} dias antes da data prevista. Se a data já está
  * dentro desse prazo, o lembrete é enviado imediatamente; caso contrário, é
  * registrado como pendente e agendado.
+ *
+ * Executar de novo para a mesma OS com outra data substitui o agendamento
+ * anterior, e a tarefa agendada confere o estado atual da OS antes de enviar.
  */
 public class AgendarLembreteRevisaoUseCase {
 
@@ -38,12 +42,14 @@ public class AgendarLembreteRevisaoUseCase {
     }
 
     public ResultadoNotificacao executar(OrdemParaNotificar ordem) {
+        Long ordemId = ordem.id();
+
         if (ordem.dataProximaRevisao() == null) {
+            cancelar(ordemId);
             return ResultadoNotificacao.naoEnviada("Data de revisão preventiva não informada.");
         }
 
-        Long ordemId = ordem.id();
-        if (ordemId != null && agendador.foiProcessado(ordemId)) {
+        if (ordemId != null && agendador.foiProcessado(ordemId, ordem.dataProximaRevisao())) {
             return ResultadoNotificacao.naoEnviada("Lembrete de revisão já processado nesta execução.");
         }
 
@@ -51,17 +57,34 @@ public class AgendarLembreteRevisaoUseCase {
         LocalDateTime agora = LocalDateTime.now(clock);
 
         if (!dataEnvio.isAfter(agora)) {
+            cancelar(ordemId);
             return enviarAgora(ordem, agora);
         }
 
-        if (ordemId != null && agendador.estaAgendado(ordemId)) {
+        if (ordemId != null && agendador.estaAgendado(ordemId, dataEnvio)) {
             return ResultadoNotificacao.agendada(dataEnvio, "Lembrete de revisão já estava agendado.");
+        }
+
+        // Data mudou (ou nunca foi agendado): o agendamento antigo sai e o
+        // lembrete pendente existente é reaproveitado com a nova data.
+        if (ordemId != null) {
+            agendador.cancelar(ordemId);
         }
 
         Long notificacaoId = registrarOuAtualizarPendente(ordem, dataEnvio);
         agendador.agendar(ordemId, dataEnvio, () -> enviarAgendado(ordem, notificacaoId));
 
         return ResultadoNotificacao.agendada(dataEnvio, "Lembrete de revisão preventiva agendado.");
+    }
+
+    /** Cancela o lembrete da OS (revisão removida, OS reaberta ou cancelada). */
+    public void cancelar(Long ordemId) {
+        if (ordemId == null) {
+            return;
+        }
+
+        agendador.cancelar(ordemId);
+        gateway.descartarLembretesPendentes(ordemId);
     }
 
     private ResultadoNotificacao enviarAgora(OrdemParaNotificar ordem, LocalDateTime agora) {
@@ -88,7 +111,7 @@ public class AgendarLembreteRevisaoUseCase {
         }
 
         if (ordem.id() != null) {
-            agendador.marcarProcessado(ordem.id());
+            agendador.marcarProcessado(ordem.id(), ordem.dataProximaRevisao());
         }
 
         return ResultadoNotificacao.enviadaImediatamente(
@@ -96,7 +119,24 @@ public class AgendarLembreteRevisaoUseCase {
     }
 
     /** Executado pelo agendador na data prevista. */
-    private void enviarAgendado(OrdemParaNotificar ordem, Long notificacaoId) {
+    private void enviarAgendado(OrdemParaNotificar ordemAgendada, Long notificacaoId) {
+        OrdemParaNotificar ordem = ordemAgendada;
+
+        if (ordemAgendada.id() != null) {
+            ordem = gateway.buscarOrdemFinalizada(ordemAgendada.id()).orElse(null);
+
+            if (ordem == null) {
+                // OS excluída, reaberta ou cancelada depois do agendamento.
+                gateway.descartarLembretesPendentes(ordemAgendada.id());
+                return;
+            }
+
+            if (!Objects.equals(ordem.dataProximaRevisao(), ordemAgendada.dataProximaRevisao())) {
+                // A data mudou; o novo agendamento cuida do envio.
+                return;
+            }
+        }
+
         boolean enviada = enviar(ordem, mensagem(ordem));
 
         if (notificacaoId != null) {
@@ -104,7 +144,7 @@ public class AgendarLembreteRevisaoUseCase {
         }
 
         if (enviada && ordem.id() != null) {
-            agendador.marcarProcessado(ordem.id());
+            agendador.marcarProcessado(ordem.id(), ordem.dataProximaRevisao());
         }
     }
 

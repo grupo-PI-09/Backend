@@ -10,4 +10,8 @@ public interface ClienteRepository extends JpaRepository<ClienteModel, Long> {
     List<ClienteModel> findByNomeContainingIgnoreCase(String nome);
 
     long countByDataCadastroBetween(LocalDateTime inicio, LocalDateTime fim);
+
+    boolean existsByCpf(String cpf);
+
+    boolean existsByCpfAndIdNot(String cpf, Long id);
 }
