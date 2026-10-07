@@ -23,9 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class VeiculoService {
@@ -73,6 +75,18 @@ public class VeiculoService {
                 .stream()
                 .map(this::converterParaResponse)
                 .toList();
+    }
+
+    /** Veículos de vários clientes numa única consulta, agrupados pelo id do cliente. */
+    public Map<Long, List<VeiculoDTOResponse>> buscarPorClienteIds(Collection<Long> clienteIds) {
+        if (clienteIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return veiculoRepository.findByClienteIdIn(clienteIds)
+                .stream()
+                .map(this::converterParaResponse)
+                .collect(Collectors.groupingBy(VeiculoDTOResponse::getClienteId));
     }
 
     public ConsultaPlacaResponse consultarPorPlaca(ConsultaPlacaRequest dto) {

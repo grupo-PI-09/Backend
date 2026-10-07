@@ -3,6 +3,8 @@ package oficina.mecanica.backendOficina.Repository;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
 import oficina.mecanica.backendOficina.Model.TipoServico;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +18,12 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServicoModel,
 
     @EntityGraph(attributePaths = {"cliente", "veiculo"})
     List<OrdemServicoModel> findAllByOrderByDataAberturaDescIdDesc();
+
+    @EntityGraph(attributePaths = {"cliente", "veiculo"})
+    Page<OrdemServicoModel> findAllBy(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"cliente", "veiculo"})
+    Page<OrdemServicoModel> findByClienteNomeContainingIgnoreCase(String nome, Pageable pageable);
 
     List<OrdemServicoModel> findByClienteId(Long clienteId);
 

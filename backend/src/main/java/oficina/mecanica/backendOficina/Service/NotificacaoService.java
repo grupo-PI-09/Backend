@@ -1,17 +1,24 @@
 package oficina.mecanica.backendOficina.Service;
 import oficina.mecanica.backendOficina.DTO.NotificacaoDTOResponse;
+import oficina.mecanica.backendOficina.DTO.PaginaCursorResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Model.NotificacaoModel;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusNotificacao;
+import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
+import oficina.mecanica.backendOficina.Model.TipoServico;
 import oficina.mecanica.backendOficina.Model.VeiculoModel;
+import oficina.mecanica.backendOficina.Paginacao.CursorCodec;
+import oficina.mecanica.backendOficina.Paginacao.CursorCodec.Cursor;
 import oficina.mecanica.backendOficina.Repository.NotificacaoRepository;
 import oficina.mecanica.backendOficina.notificacao.domain.Telefone;
 import oficina.mecanica.backendOficina.notificacao.usecase.port.EnviadorDeMensagem;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,6 +27,9 @@ public class NotificacaoService {
     private final NotificacaoRepository notificacaoRepository;
 
     private final EnviadorDeMensagem enviador;
+
+    public static final int TAMANHO_PADRAO = 8;
+    public static final int TAMANHO_MAXIMO = 50;
 
     public NotificacaoService(NotificacaoRepository notificacaoRepository, EnviadorDeMensagem enviador) {
         this.notificacaoRepository = notificacaoRepository;
@@ -31,6 +41,60 @@ public class NotificacaoService {
                 .stream()
                 .map(this::converterParaResponse)
                 .toList();
+    }
+
+    public PaginaCursorResponse<NotificacaoDTOResponse> listarPorCursor(Boolean lida,
+                                                                        TipoServico tipoServico,
+                                                                        StatusOrdemServico statusOs,
+                                                                        LocalDate dataInicio,
+                                                                        LocalDate dataFim,
+                                                                        String cursor,
+                                                                        int tamanho) {
+        if (tamanho < 1 || tamanho > TAMANHO_MAXIMO) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O tamanho da página deve estar entre 1 e " + TAMANHO_MAXIMO);
+        }
+
+        if (dataInicio != null && dataFim != null && dataFim.isBefore(dataInicio)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data final deve ser posterior à data inicial");
+        }
+
+        Cursor posicao = cursor == null || cursor.isBlank() ? null : CursorCodec.decodificar(cursor);
+
+        List<NotificacaoModel> linhas = notificacaoRepository.listarPorCursor(
+                lida,
+                tipoServico,
+                statusOs,
+                dataInicio != null ? dataInicio.atStartOfDay() : null,
+                // data final inclusiva: até o fim do dia = antes do início do dia seguinte
+                dataFim != null ? dataFim.plusDays(1).atStartOfDay() : null,
+                posicao != null ? posicao.data() : null,
+                posicao != null ? posicao.id() : null,
+                PageRequest.of(0, tamanho + 1));
+
+        boolean temProxima = linhas.size() > tamanho;
+        List<NotificacaoModel> pagina = temProxima ? linhas.subList(0, tamanho) : linhas;
+
+        String proximoCursor = null;
+        if (temProxima) {
+            NotificacaoModel ultima = pagina.get(pagina.size() - 1);
+            proximoCursor = CursorCodec.codificar(dataReferencia(ultima), ultima.getId());
+        }
+
+        return new PaginaCursorResponse<>(
+                pagina.stream().map(this::converterParaResponse).toList(),
+                proximoCursor,
+                tamanho);
+    }
+
+    private LocalDateTime dataReferencia(NotificacaoModel notificacao) {
+        if (notificacao.getDataEnvio() != null) {
+            return notificacao.getDataEnvio();
+        }
+
+        return notificacao.getDataAgendamento() != null
+                ? notificacao.getDataAgendamento()
+                : notificacao.getDataCriacao();
     }
 
     public long contarNaoLidas() {
@@ -99,6 +163,7 @@ public class NotificacaoService {
                 veiculo != null ? veiculo.getPlaca() : null,
                 ordemServico != null ? ordemServico.getId() : null,
                 ordemServico != null && ordemServico.getStatus() != null ? ordemServico.getStatus().name() : null,
+                ordemServico != null && ordemServico.getTipoServico() != null ? ordemServico.getTipoServico().name() : null,
                 notificacao.getTipo() != null ? notificacao.getTipo().name() : null,
                 notificacao.getAssunto(),
                 notificacao.getMensagem(),

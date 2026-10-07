@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
@@ -45,6 +46,14 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(
                 new ApiErrorResponse(true, "Dados inválidos", detalhes)
+        );
+    }
+
+    /** Parâmetro de query com tipo/valor inválido (ex.: page=abc, statusOs=xyz) é erro do cliente, não 500. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTipoParametroInvalido(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(
+                new ApiErrorResponse(true, "Parâmetro inválido", "Valor inválido para o parâmetro '" + ex.getName() + "'")
         );
     }
 

@@ -2,6 +2,8 @@ package oficina.mecanica.backendOficina.Controller;
 
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTORequest;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTOResponse;
+import oficina.mecanica.backendOficina.DTO.PaginaOffsetResponse;
+import oficina.mecanica.backendOficina.Paginacao.PaginacaoOffset;
 import oficina.mecanica.backendOficina.Service.OrdemServicoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,15 @@ public class OrdemServicoController {
     @GetMapping
     public ResponseEntity<List<OrdemServicoDTOResponse>> getOrdens() {
         return ResponseEntity.ok(service.listar());
+    }
+
+    /** Paginação por offset: {@code GET /ordens/paginado?page=1&size=8&busca=ana} (busca pelo nome do cliente). */
+    @GetMapping("/paginado")
+    public ResponseEntity<PaginaOffsetResponse<OrdemServicoDTOResponse>> getOrdensPaginado(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "" + PaginacaoOffset.TAMANHO_PADRAO) int size,
+            @RequestParam(required = false) String busca) {
+        return ResponseEntity.ok(service.listarPaginado(page, size, busca));
     }
 
     @GetMapping("/{id}")
