@@ -66,9 +66,24 @@ class AgendarLembreteRevisaoUseCaseTest {
         assertFalse(resultado.agendada());
         assertEquals(1, enviador.enviadas.size());
         assertEquals("11999998888", enviador.enviadas.get(0));
-        assertEquals(StatusNotificacao.enviada, gateway.registradas.get(0).status());
-        assertEquals(AGORA, gateway.registradas.get(0).dataEnvio());
+        assertEquals(Long.valueOf(100L), enviador.ids.get(0));
+        assertEquals(StatusNotificacao.pendente, gateway.registradas.get(0).status());
+        assertNull(gateway.registradas.get(0).dataEnvio());
         assertEquals(AGORA.plusDays(3), agendador.processados.get(1L));
+    }
+
+    @Test
+    void falhaAoPublicarMarcaErroENaoMarcaComoProcessado() {
+        enviador.aceita = false;
+
+        ResultadoNotificacao resultado = useCase.executar(ordem(AGORA.plusDays(3)));
+
+        assertFalse(resultado.enviada());
+        assertEquals("Lembrete de revisão não enviado: serviço de mensagens indisponível.", resultado.aviso());
+        assertEquals(StatusNotificacao.pendente, gateway.registradas.get(0).status());
+        assertEquals(Long.valueOf(100L), gateway.resultadoId);
+        assertFalse(gateway.resultadoEnviada);
+        assertTrue(agendador.processados.isEmpty());
     }
 
     @Test
@@ -100,7 +115,7 @@ class AgendarLembreteRevisaoUseCaseTest {
     }
 
     @Test
-    void tarefaAgendadaEnviaEAtualizaNotificacaoPendente() {
+    void tarefaAgendadaPublicaComIdDaNotificacaoPendente() {
         OrdemParaNotificar ordem = ordem(AGORA.plusDays(30));
         useCase.executar(ordem);
         gateway.ordemAtual = ordem;
@@ -108,9 +123,23 @@ class AgendarLembreteRevisaoUseCaseTest {
         agendador.tarefa.run();
 
         assertEquals(1, enviador.enviadas.size());
-        assertEquals(Long.valueOf(100L), gateway.resultadoId);
-        assertTrue(gateway.resultadoEnviada);
+        assertEquals(Long.valueOf(100L), enviador.ids.get(0));
+        assertNull(gateway.resultadoId);
         assertEquals(AGORA.plusDays(30), agendador.processados.get(1L));
+    }
+
+    @Test
+    void tarefaAgendadaMarcaErroQuandoPublicacaoFalha() {
+        OrdemParaNotificar ordem = ordem(AGORA.plusDays(30));
+        useCase.executar(ordem);
+        gateway.ordemAtual = ordem;
+        enviador.aceita = false;
+
+        agendador.tarefa.run();
+
+        assertEquals(Long.valueOf(100L), gateway.resultadoId);
+        assertFalse(gateway.resultadoEnviada);
+        assertTrue(agendador.processados.isEmpty());
     }
 
     @Test
@@ -178,11 +207,14 @@ class AgendarLembreteRevisaoUseCaseTest {
 
     private static class EnviadorFake implements EnviadorDeMensagem {
         final List<String> enviadas = new ArrayList<>();
+        final List<Long> ids = new ArrayList<>();
+        boolean aceita = true;
 
         @Override
-        public boolean enviar(String telefone, String mensagem, String contexto) {
+        public boolean enviar(Long notificacaoId, String telefone, String mensagem, String contexto) {
             enviadas.add(telefone);
-            return true;
+            ids.add(notificacaoId);
+            return aceita;
         }
     }
 

@@ -8,11 +8,13 @@ import oficina.mecanica.backendOficina.Model.VeiculoModel;
 import oficina.mecanica.backendOficina.Repository.NotificacaoRepository;
 import oficina.mecanica.backendOficina.notificacao.domain.Telefone;
 import oficina.mecanica.backendOficina.notificacao.usecase.port.EnviadorDeMensagem;
+import oficina.mecanica.backendOficina.notificacao.usecase.port.NotificacaoGateway;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.List;
 
 @Service
@@ -21,9 +23,14 @@ public class NotificacaoService {
 
     private final EnviadorDeMensagem enviador;
 
-    public NotificacaoService(NotificacaoRepository notificacaoRepository, EnviadorDeMensagem enviador) {
+    private final NotificacaoGateway gateway;
+
+    public NotificacaoService(NotificacaoRepository notificacaoRepository,
+                              EnviadorDeMensagem enviador,
+                              NotificacaoGateway gateway) {
         this.notificacaoRepository = notificacaoRepository;
         this.enviador = enviador;
+        this.gateway = gateway;
     }
 
     public List<NotificacaoDTOResponse> listar() {
@@ -65,18 +72,31 @@ public class NotificacaoService {
         String telefone = cliente != null ? cliente.getTelefone() : notificacao.getTelefoneDestino();
 
         String destinatario = Telefone.normalizar(telefone);
-        boolean enviada = destinatario != null
-                && enviador.enviar(destinatario, notificacao.getMensagem(), "reenvio da notificação " + id);
 
-        notificacao.setStatus(enviada ? StatusNotificacao.enviada : StatusNotificacao.erro);
+        notificacao.setStatus(destinatario != null ? StatusNotificacao.pendente : StatusNotificacao.erro);
         notificacao.setTelefoneDestino(telefone);
         notificacao.setLida(false);
 
-        if (enviada) {
-            notificacao.setDataEnvio(LocalDateTime.now());
+        NotificacaoModel salva = notificacaoRepository.save(notificacao);
+
+        if (destinatario != null) {
+            publicarReenvioAposCommit(id, destinatario, salva.getMensagem());
         }
 
-        return converterParaResponse(notificacaoRepository.save(notificacao));
+        return converterParaResponse(salva);
+    }
+
+    private void publicarReenvioAposCommit(Long id, String destinatario, String mensagem) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                boolean aceita = enviador.enviar(id, destinatario, mensagem, "reenvio da notificação " + id);
+
+                if (!aceita) {
+                    gateway.registrarResultadoEnvio(id, false, null);
+                }
+            }
+        });
     }
 
     private NotificacaoModel buscarNotificacao(Long id) {

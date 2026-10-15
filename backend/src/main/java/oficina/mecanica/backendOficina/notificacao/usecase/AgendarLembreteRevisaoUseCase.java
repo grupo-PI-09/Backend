@@ -13,15 +13,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Regra do lembrete de revisão preventiva: o cliente é avisado
- * {@value #DIAS_ANTECEDENCIA} dias antes da data prevista. Se a data já está
- * dentro desse prazo, o lembrete é enviado imediatamente; caso contrário, é
- * registrado como pendente e agendado.
- *
- * Executar de novo para a mesma OS com outra data substitui o agendamento
- * anterior, e a tarefa agendada confere o estado atual da OS antes de enviar.
- */
 public class AgendarLembreteRevisaoUseCase {
 
     public static final int DIAS_ANTECEDENCIA = 7;
@@ -89,25 +80,18 @@ public class AgendarLembreteRevisaoUseCase {
 
     private ResultadoNotificacao enviarAgora(OrdemParaNotificar ordem, LocalDateTime agora) {
         String mensagem = mensagem(ordem);
-        boolean enviada = enviar(ordem, mensagem);
+        String telefone = Telefone.normalizar(ordem.telefoneCliente());
 
-        if (ordem.clienteId() != null) {
-            gateway.registrar(new NovaNotificacao(
-                    ordem.clienteId(),
-                    ordem.veiculoId(),
-                    ordem.id(),
-                    TipoNotificacao.revisao_preventiva,
-                    MensagemNotificacao.ASSUNTO_REVISAO,
-                    mensagem,
-                    enviada ? StatusNotificacao.enviada : StatusNotificacao.erro,
-                    ordem.telefoneCliente(),
-                    null,
-                    enviada ? agora : null
-            ));
+        if (telefone == null) {
+            registrarImediata(ordem, mensagem, StatusNotificacao.erro);
+            return ResultadoNotificacao.naoEnviada("Lembrete de revisão não registrado: cliente sem telefone cadastrado.");
         }
 
-        if (!enviada) {
-            return ResultadoNotificacao.naoEnviada("Lembrete de revisão não registrado: cliente sem telefone cadastrado.");
+        Long notificacaoId = registrarImediata(ordem, mensagem, StatusNotificacao.pendente);
+
+        if (!enviador.enviar(notificacaoId, telefone, mensagem, contexto(ordem))) {
+            marcarErro(notificacaoId);
+            return ResultadoNotificacao.naoEnviada("Lembrete de revisão não enviado: serviço de mensagens indisponível.");
         }
 
         if (ordem.id() != null) {
@@ -137,15 +121,37 @@ public class AgendarLembreteRevisaoUseCase {
             }
         }
 
-        boolean enviada = enviar(ordem, mensagem(ordem));
+        String telefone = Telefone.normalizar(ordem.telefoneCliente());
+        boolean aceita = telefone != null
+                && enviador.enviar(notificacaoId, telefone, mensagem(ordem), contexto(ordem));
 
-        if (notificacaoId != null) {
-            gateway.registrarResultadoEnvio(notificacaoId, enviada, enviada ? LocalDateTime.now(clock) : null);
+        if (!aceita) {
+            marcarErro(notificacaoId);
+            return;
         }
 
-        if (enviada && ordem.id() != null) {
+        if (ordem.id() != null) {
             agendador.marcarProcessado(ordem.id(), ordem.dataProximaRevisao());
         }
+    }
+
+    private Long registrarImediata(OrdemParaNotificar ordem, String mensagem, StatusNotificacao status) {
+        if (ordem.clienteId() == null) {
+            return null;
+        }
+
+        return gateway.registrar(new NovaNotificacao(
+                ordem.clienteId(),
+                ordem.veiculoId(),
+                ordem.id(),
+                TipoNotificacao.revisao_preventiva,
+                MensagemNotificacao.ASSUNTO_REVISAO,
+                mensagem,
+                status,
+                ordem.telefoneCliente(),
+                null,
+                null
+        )).orElse(null);
     }
 
     private Long registrarOuAtualizarPendente(OrdemParaNotificar ordem, LocalDateTime dataAgendamento) {
@@ -178,10 +184,14 @@ public class AgendarLembreteRevisaoUseCase {
         )).orElse(null);
     }
 
-    private boolean enviar(OrdemParaNotificar ordem, String mensagem) {
-        String telefone = Telefone.normalizar(ordem.telefoneCliente());
-        return telefone != null
-                && enviador.enviar(telefone, mensagem, "lembrete de revisão da OS " + ordem.id());
+    private void marcarErro(Long notificacaoId) {
+        if (notificacaoId != null) {
+            gateway.registrarResultadoEnvio(notificacaoId, false, null);
+        }
+    }
+
+    private String contexto(OrdemParaNotificar ordem) {
+        return "lembrete de revisão da OS " + ordem.id();
     }
 
     private String mensagem(OrdemParaNotificar ordem) {

@@ -9,10 +9,11 @@ import oficina.mecanica.backendOficina.notificacao.usecase.port.EnviadorDeMensag
 import oficina.mecanica.backendOficina.notificacao.usecase.port.NotificacaoGateway;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
 
 /**
  * Avisa o cliente que o serviço da ordem foi finalizado e registra o histórico.
+ * A notificação nasce como pendente e só vira enviada ou com erro quando o
+ * resultado do envio chega do microsserviço de notificação.
  */
 public class NotificarFinalizacaoOrdemUseCase {
 
@@ -31,28 +32,41 @@ public class NotificarFinalizacaoOrdemUseCase {
                 ordem.nomeCliente(), ordem.modeloVeiculo(), ordem.placaVeiculo());
 
         String telefone = Telefone.normalizar(ordem.telefoneCliente());
-        boolean enviada = telefone != null
-                && enviador.enviar(telefone, mensagem, "finalização da OS " + ordem.id());
 
-        if (ordem.clienteId() != null) {
-            gateway.registrar(new NovaNotificacao(
-                    ordem.clienteId(),
-                    ordem.veiculoId(),
-                    ordem.id(),
-                    TipoNotificacao.pos_servico,
-                    MensagemNotificacao.ASSUNTO_FINALIZACAO,
-                    mensagem,
-                    enviada ? StatusNotificacao.enviada : StatusNotificacao.erro,
-                    ordem.telefoneCliente(),
-                    null,
-                    enviada ? LocalDateTime.now(clock) : null
-            ));
+        if (telefone == null) {
+            registrar(ordem, mensagem, StatusNotificacao.erro);
+            return ResultadoNotificacao.naoEnviada("Notificação de finalização não registrada: cliente sem telefone cadastrado.");
         }
 
-        if (enviada) {
-            return ResultadoNotificacao.enviada("Notificação de finalização registrada para o cliente.");
+        Long notificacaoId = registrar(ordem, mensagem, StatusNotificacao.pendente);
+        boolean aceita = enviador.enviar(notificacaoId, telefone, mensagem, "finalização da OS " + ordem.id());
+
+        if (!aceita) {
+            if (notificacaoId != null) {
+                gateway.registrarResultadoEnvio(notificacaoId, false, null);
+            }
+            return ResultadoNotificacao.naoEnviada("Notificação de finalização não enviada: serviço de mensagens indisponível.");
         }
 
-        return ResultadoNotificacao.naoEnviada("Notificação de finalização não registrada: cliente sem telefone cadastrado.");
+        return ResultadoNotificacao.enviada("Notificação de finalização registrada para o cliente.");
+    }
+
+    private Long registrar(OrdemParaNotificar ordem, String mensagem, StatusNotificacao status) {
+        if (ordem.clienteId() == null) {
+            return null;
+        }
+
+        return gateway.registrar(new NovaNotificacao(
+                ordem.clienteId(),
+                ordem.veiculoId(),
+                ordem.id(),
+                TipoNotificacao.pos_servico,
+                MensagemNotificacao.ASSUNTO_FINALIZACAO,
+                mensagem,
+                status,
+                ordem.telefoneCliente(),
+                null,
+                null
+        )).orElse(null);
     }
 }
