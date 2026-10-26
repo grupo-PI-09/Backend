@@ -13,6 +13,7 @@ public class NotificacaoDTOResponse {
     private String placa;
     private Long ordemServicoId;
     private String statusOs;
+    private String tipoServico;
     private String tipo;
     private String assunto;
     private String mensagem;
@@ -29,7 +30,7 @@ public class NotificacaoDTOResponse {
 
     public NotificacaoDTOResponse(Long id, Long clienteId, String cliente, String telefone,
                                   Long veiculoId, String veiculo, String placa,
-                                  Long ordemServicoId, String statusOs, String tipo,
+                                  Long ordemServicoId, String statusOs, String tipoServico, String tipo,
                                   String assunto, String mensagem, String canal, String status,
                                   boolean lida, LocalDateTime dataCriacao, LocalDateTime dataAgendamento,
                                   LocalDateTime dataEnvio, LocalDateTime dataProximaRevisao) {
@@ -42,6 +43,7 @@ public class NotificacaoDTOResponse {
         this.placa = placa;
         this.ordemServicoId = ordemServicoId;
         this.statusOs = statusOs;
+        this.tipoServico = tipoServico;
         this.tipo = tipo;
         this.assunto = assunto;
         this.mensagem = mensagem;
@@ -71,6 +73,8 @@ public class NotificacaoDTOResponse {
     public Long getOrdemServicoId() { return ordemServicoId; }
 
     public String getStatusOs() { return statusOs; }
+
+    public String getTipoServico() { return tipoServico; }
 
     public String getTipo() { return tipo; }
 

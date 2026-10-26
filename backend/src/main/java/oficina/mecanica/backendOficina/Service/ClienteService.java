@@ -1,24 +1,33 @@
 package oficina.mecanica.backendOficina.Service;
 
+import oficina.mecanica.backendOficina.DTO.ClienteComVeiculosDTOResponse;
 import oficina.mecanica.backendOficina.DTO.ClienteDTORequest;
 import oficina.mecanica.backendOficina.DTO.ClienteDTOResponse;
+import oficina.mecanica.backendOficina.DTO.PaginaOffsetResponse;
+import oficina.mecanica.backendOficina.DTO.VeiculoDTOResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
+import oficina.mecanica.backendOficina.Paginacao.PaginacaoOffset;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class ClienteService {
 
     private final ClienteRepository clienteRepository;
+    private final VeiculoService veiculoService;
 
-    public ClienteService(ClienteRepository clienteRepository) {
+    public ClienteService(ClienteRepository clienteRepository, VeiculoService veiculoService) {
         this.clienteRepository = clienteRepository;
+        this.veiculoService = veiculoService;
     }
 
     public List<ClienteDTOResponse> listar() {
@@ -26,6 +35,24 @@ public class ClienteService {
         return clientes.stream()
                 .map(this::converterParaResponse)
                 .toList();
+    }
+
+    public PaginaOffsetResponse<ClienteComVeiculosDTOResponse> listarPaginado(int pagina, int tamanho, String busca) {
+        Pageable pageable = PaginacaoOffset.criar(pagina, tamanho, Sort.by(Sort.Direction.ASC, "id"));
+        String termo = busca == null ? "" : busca.trim();
+
+        Page<ClienteModel> resultado = termo.isEmpty()
+                ? clienteRepository.findAll(pageable)
+                : clienteRepository.findByNomeContainingIgnoreCase(termo, pageable);
+
+        List<Long> ids = resultado.getContent().stream().map(ClienteModel::getId).toList();
+        Map<Long, List<VeiculoDTOResponse>> veiculosPorCliente = veiculoService.buscarPorClienteIds(ids);
+
+        return PaginaOffsetResponse.de(resultado, resultado.getContent().stream()
+                .map(cliente -> new ClienteComVeiculosDTOResponse(
+                        converterParaResponse(cliente),
+                        veiculosPorCliente.getOrDefault(cliente.getId(), List.of())))
+                .toList());
     }
 
     public ClienteDTOResponse buscarPorId(Long id) {

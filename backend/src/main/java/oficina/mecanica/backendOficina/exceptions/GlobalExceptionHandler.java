@@ -55,6 +55,14 @@ public class GlobalExceptionHandler {
         );
     }
 
+    /** Parâmetro de query com tipo/valor inválido (ex.: page=abc, statusOs=xyz) é erro do cliente, não 500. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTipoParametroInvalido(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(
+                new ApiErrorResponse(true, "Parâmetro inválido", "Valor inválido para o parâmetro '" + ex.getName() + "'")
+        );
+    }
+
     @ExceptionHandler({ClienteNaoEncontradoException.class, VeiculoNaoEncontradoException.class})
     public ResponseEntity<ApiErrorResponse> handleNaoEncontrado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(

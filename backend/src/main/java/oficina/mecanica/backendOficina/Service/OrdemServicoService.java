@@ -2,11 +2,13 @@ package oficina.mecanica.backendOficina.Service;
 
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTORequest;
 import oficina.mecanica.backendOficina.DTO.OrdemServicoDTOResponse;
+import oficina.mecanica.backendOficina.DTO.PaginaOffsetResponse;
 import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusOrdemServico;
 import oficina.mecanica.backendOficina.Model.TipoServico;
 import oficina.mecanica.backendOficina.Model.VeiculoModel;
+import oficina.mecanica.backendOficina.Paginacao.PaginacaoOffset;
 import oficina.mecanica.backendOficina.Repository.ClienteRepository;
 import oficina.mecanica.backendOficina.Repository.OrdemServicoRepository;
 import oficina.mecanica.backendOficina.Repository.VeiculoRepository;
@@ -15,9 +17,9 @@ import oficina.mecanica.backendOficina.notificacao.usecase.AgendarLembreteRevisa
 import oficina.mecanica.backendOficina.notificacao.usecase.NotificarFinalizacaoOrdemUseCase;
 import oficina.mecanica.backendOficina.notificacao.usecase.OrdemParaNotificar;
 import oficina.mecanica.backendOficina.notificacao.usecase.ResultadoNotificacao;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -61,6 +63,22 @@ public class OrdemServicoService {
                 .stream()
                 .map(this::converterParaResponse)
                 .toList();
+    }
+
+    /**
+     * Paginação por offset com a mesma ordem da listagem completa
+     * (abertura mais recente primeiro); o id desempata ordens abertas no mesmo instante.
+     */
+    public PaginaOffsetResponse<OrdemServicoDTOResponse> listarPaginado(int pagina, int tamanho, String busca) {
+        Pageable pageable = PaginacaoOffset.criar(pagina, tamanho,
+                Sort.by(Sort.Order.desc("dataAbertura"), Sort.Order.desc("id")));
+        String termo = busca == null ? "" : busca.trim();
+
+        Page<OrdemServicoModel> resultado = termo.isEmpty()
+                ? ordemServicoRepository.findAllBy(pageable)
+                : ordemServicoRepository.findByClienteNomeContainingIgnoreCase(termo, pageable);
+
+        return PaginaOffsetResponse.de(resultado, this::converterParaResponse);
     }
 
     public OrdemServicoDTOResponse buscarPorId(Long id) {
