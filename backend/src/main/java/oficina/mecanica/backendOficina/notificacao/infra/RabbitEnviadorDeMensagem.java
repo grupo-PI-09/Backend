@@ -19,7 +19,7 @@ public class RabbitEnviadorDeMensagem implements EnviadorDeMensagem {
     }
 
     @Override
-    public boolean enviar(Long notificacaoId, String telefone, String mensagem, String contexto) {
-        return publisher.publicar(new NotificacaoEnvioMensagem(notificacaoId, telefone, mensagem, contexto));
+    public boolean enviar(Long notificacaoId, String telefone, String mensagem, String mensagemCurta, String contexto) {
+        return publisher.publicar(new NotificacaoEnvioMensagem(notificacaoId, telefone, mensagem, mensagemCurta, contexto));
     }
 }

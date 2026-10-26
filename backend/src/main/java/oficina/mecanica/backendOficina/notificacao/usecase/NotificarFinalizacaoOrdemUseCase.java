@@ -39,7 +39,9 @@ public class NotificarFinalizacaoOrdemUseCase {
         }
 
         Long notificacaoId = registrar(ordem, mensagem, StatusNotificacao.pendente);
-        boolean aceita = enviador.enviar(notificacaoId, telefone, mensagem, "finalização da OS " + ordem.id());
+        String mensagemCurta = MensagemNotificacao.finalizacaoCurta(
+                ordem.nomeCliente(), ordem.modeloVeiculo(), ordem.placaVeiculo());
+        boolean aceita = enviador.enviar(notificacaoId, telefone, mensagem, mensagemCurta, "finalização da OS " + ordem.id());
 
         if (!aceita) {
             if (notificacaoId != null) {

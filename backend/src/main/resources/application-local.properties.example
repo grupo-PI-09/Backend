@@ -18,6 +18,13 @@ app.jwt.secret=COLE_AQUI_UM_SEGREDO_DE_NO_MINIMO_32_CARACTERES
 # Token da APIBrasil (obtenha no painel da sua conta)
 apibrasil.token=
 
+# RabbitMQ: obrigatorio, sem ele a aplicacao nao sobe. Use as mesmas
+# credenciais no microsservico (notificacao-service). Para criar o usuario:
+# rabbitmqctl add_user oficina TROQUE_ESTA_SENHA
+# rabbitmqctl set_permissions -p / oficina ".*" ".*" ".*"
+spring.rabbitmq.username=oficina
+spring.rabbitmq.password=TROQUE_ESTA_SENHA
+
 # Swagger liberado apenas em desenvolvimento
 springdoc.api-docs.enabled=true
 springdoc.swagger-ui.enabled=true

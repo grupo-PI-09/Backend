@@ -89,7 +89,7 @@ public class AgendarLembreteRevisaoUseCase {
 
         Long notificacaoId = registrarImediata(ordem, mensagem, StatusNotificacao.pendente);
 
-        if (!enviador.enviar(notificacaoId, telefone, mensagem, contexto(ordem))) {
+        if (!enviador.enviar(notificacaoId, telefone, mensagem, mensagemCurta(ordem), contexto(ordem))) {
             marcarErro(notificacaoId);
             return ResultadoNotificacao.naoEnviada("Lembrete de revisão não enviado: serviço de mensagens indisponível.");
         }
@@ -123,7 +123,7 @@ public class AgendarLembreteRevisaoUseCase {
 
         String telefone = Telefone.normalizar(ordem.telefoneCliente());
         boolean aceita = telefone != null
-                && enviador.enviar(notificacaoId, telefone, mensagem(ordem), contexto(ordem));
+                && enviador.enviar(notificacaoId, telefone, mensagem(ordem), mensagemCurta(ordem), contexto(ordem));
 
         if (!aceita) {
             marcarErro(notificacaoId);
@@ -196,6 +196,11 @@ public class AgendarLembreteRevisaoUseCase {
 
     private String mensagem(OrdemParaNotificar ordem) {
         return MensagemNotificacao.lembreteRevisao(
+                ordem.nomeCliente(), ordem.modeloVeiculo(), ordem.placaVeiculo(), ordem.dataProximaRevisao());
+    }
+
+    private String mensagemCurta(OrdemParaNotificar ordem) {
+        return MensagemNotificacao.lembreteRevisaoCurto(
                 ordem.nomeCliente(), ordem.modeloVeiculo(), ordem.placaVeiculo(), ordem.dataProximaRevisao());
     }
 }

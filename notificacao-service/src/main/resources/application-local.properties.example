@@ -1,0 +1,37 @@
+# Copie este arquivo para application-local.properties (ignorado pelo git) e
+# rode o servico com:  ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+#
+# NUNCA versione o application-local.properties preenchido.
+
+# Mesmas credenciais do RabbitMQ usadas pela API principal
+spring.rabbitmq.username=oficina
+spring.rabbitmq.password=TROQUE_ESTA_SENHA
+
+# ---------------------------------------------------------------------------
+# Twilio (conta trial gratuita + sandbox do WhatsApp)
+# 1. Console > Account Info: copie o Account SID e o Auth Token
+# 2. Console > Messaging > Try it out > Send a WhatsApp message: ative o
+#    sandbox e, no celular que vai receber, mande "join <codigo>" para
+#    +1 415 523 8886
+# 3. Mande qualquer mensagem para o sandbox antes de testar: mensagem livre
+#    so e entregue ate 24h depois da ultima mensagem recebida do celular
+# ---------------------------------------------------------------------------
+twilio.enabled=true
+twilio.account-sid=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+twilio.auth-token=COLE_AQUI_O_AUTH_TOKEN
+twilio.canal=whatsapp
+twilio.remetente=+14155238886
+
+# Os clientes do banco tem telefones ficticios: redirecione tudo para o
+# celular que entrou no sandbox
+twilio.destino-teste=+5511999998888
+
+# ---------------------------------------------------------------------------
+# Alternativa: SMS (conta paga). Um numero dos EUA envia para o Brasil sem o
+# registro A2P 10DLC (ele so vale para destinos nos EUA). Libere o Brasil em
+# Messaging > Geo Permissions. O texto vai sem acento e com ate 160
+# caracteres (1 segmento, ~US$ 0,06 por SMS).
+# ---------------------------------------------------------------------------
+# twilio.canal=sms
+# twilio.remetente=+1XXXXXXXXXX
+# twilio.confirmacao-timeout=20s

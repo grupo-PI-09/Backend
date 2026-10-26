@@ -4,8 +4,10 @@ import oficina.mecanica.backendOficina.Model.ClienteModel;
 import oficina.mecanica.backendOficina.Model.NotificacaoModel;
 import oficina.mecanica.backendOficina.Model.OrdemServicoModel;
 import oficina.mecanica.backendOficina.Model.StatusNotificacao;
+import oficina.mecanica.backendOficina.Model.TipoNotificacao;
 import oficina.mecanica.backendOficina.Model.VeiculoModel;
 import oficina.mecanica.backendOficina.Repository.NotificacaoRepository;
+import oficina.mecanica.backendOficina.notificacao.domain.MensagemNotificacao;
 import oficina.mecanica.backendOficina.notificacao.domain.Telefone;
 import oficina.mecanica.backendOficina.notificacao.usecase.port.EnviadorDeMensagem;
 import oficina.mecanica.backendOficina.notificacao.usecase.port.NotificacaoGateway;
@@ -80,17 +82,39 @@ public class NotificacaoService {
         NotificacaoModel salva = notificacaoRepository.save(notificacao);
 
         if (destinatario != null) {
-            publicarReenvioAposCommit(id, destinatario, salva.getMensagem());
+            publicarReenvioAposCommit(id, destinatario, salva.getMensagem(), mensagemCurta(salva));
         }
 
         return converterParaResponse(salva);
     }
 
-    private void publicarReenvioAposCommit(Long id, String destinatario, String mensagem) {
+    /** Recria a versão para SMS, que não fica salva no histórico; {@code null} usa o texto completo. */
+    private String mensagemCurta(NotificacaoModel notificacao) {
+        ClienteModel cliente = notificacao.getCliente();
+        VeiculoModel veiculo = notificacao.getVeiculo();
+        OrdemServicoModel ordemServico = notificacao.getOrdemServico();
+
+        String nome = cliente != null ? cliente.getNome() : null;
+        String modelo = veiculo != null ? veiculo.getModelo() : null;
+        String placa = veiculo != null ? veiculo.getPlaca() : null;
+
+        if (notificacao.getTipo() == TipoNotificacao.pos_servico) {
+            return MensagemNotificacao.finalizacaoCurta(nome, modelo, placa);
+        }
+
+        if (notificacao.getTipo() == TipoNotificacao.revisao_preventiva
+                && ordemServico != null && ordemServico.getDataProximaRevisao() != null) {
+            return MensagemNotificacao.lembreteRevisaoCurto(nome, modelo, placa, ordemServico.getDataProximaRevisao());
+        }
+
+        return null;
+    }
+
+    private void publicarReenvioAposCommit(Long id, String destinatario, String mensagem, String mensagemCurta) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                boolean aceita = enviador.enviar(id, destinatario, mensagem, "reenvio da notificação " + id);
+                boolean aceita = enviador.enviar(id, destinatario, mensagem, mensagemCurta, "reenvio da notificação " + id);
 
                 if (!aceita) {
                     gateway.registrarResultadoEnvio(id, false, null);

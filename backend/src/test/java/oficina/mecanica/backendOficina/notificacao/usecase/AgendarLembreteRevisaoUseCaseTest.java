@@ -66,6 +66,8 @@ class AgendarLembreteRevisaoUseCaseTest {
         assertFalse(resultado.agendada());
         assertEquals(1, enviador.enviadas.size());
         assertEquals("11999998888", enviador.enviadas.get(0));
+        assertEquals("RRmax Oficina: Olá, Ana! A revisão preventiva do Gol (ABC1D23) está prevista para 18/09/2026. "
+                + "Entre em contato para agendar.", enviador.curtas.get(0));
         assertEquals(Long.valueOf(100L), enviador.ids.get(0));
         assertEquals(StatusNotificacao.pendente, gateway.registradas.get(0).status());
         assertNull(gateway.registradas.get(0).dataEnvio());
@@ -208,12 +210,14 @@ class AgendarLembreteRevisaoUseCaseTest {
     private static class EnviadorFake implements EnviadorDeMensagem {
         final List<String> enviadas = new ArrayList<>();
         final List<Long> ids = new ArrayList<>();
+        final List<String> curtas = new ArrayList<>();
         boolean aceita = true;
 
         @Override
-        public boolean enviar(Long notificacaoId, String telefone, String mensagem, String contexto) {
+        public boolean enviar(Long notificacaoId, String telefone, String mensagem, String mensagemCurta, String contexto) {
             enviadas.add(telefone);
             ids.add(notificacaoId);
+            curtas.add(mensagemCurta);
             return aceita;
         }
     }

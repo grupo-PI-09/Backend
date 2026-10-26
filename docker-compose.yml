@@ -1,0 +1,26 @@
+# RabbitMQ para desenvolvimento (alternativa ao "brew install rabbitmq").
+#   docker compose up -d
+# Painel: http://localhost:15672 (usuario/senha abaixo)
+#
+# As mesmas credenciais vao no application-local.properties da API (backend/)
+# e do microsservico (notificacao-service/).
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: oficina-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-oficina}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no ambiente ou num arquivo .env}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rabbitmq-data:
