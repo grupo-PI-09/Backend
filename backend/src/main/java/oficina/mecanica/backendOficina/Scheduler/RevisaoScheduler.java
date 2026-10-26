@@ -42,10 +42,15 @@ public class RevisaoScheduler {
                         janelaFim
                 );
 
-        log.info("Revisões encontradas para lembrete nas próximas 24h: {}", ordens.size());
+        log.info("Revisões previstas entre 7 e 8 dias (lembrete nas próximas 24h): {}", ordens.size());
 
         for (OrdemServicoModel os : ordens) {
-            agendarLembreteRevisao.executar(OrdemParaNotificarMapper.de(os));
+            // Uma OS com problema nao pode impedir o lembrete das demais.
+            try {
+                agendarLembreteRevisao.executar(OrdemParaNotificarMapper.de(os));
+            } catch (RuntimeException e) {
+                log.error("Falha ao agendar lembrete de revisão da OS {}", os.getId(), e);
+            }
         }
 
         log.info("Scheduler finalizado.");

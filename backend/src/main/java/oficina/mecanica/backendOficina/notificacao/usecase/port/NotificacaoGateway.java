@@ -1,6 +1,7 @@
 package oficina.mecanica.backendOficina.notificacao.usecase.port;
 
 import oficina.mecanica.backendOficina.notificacao.domain.NovaNotificacao;
+import oficina.mecanica.backendOficina.notificacao.usecase.OrdemParaNotificar;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -21,4 +22,13 @@ public interface NotificacaoGateway {
 
     /** Marca uma notificação agendada como enviada (com data) ou com erro. */
     void registrarResultadoEnvio(Long notificacaoId, boolean enviada, LocalDateTime dataEnvio);
+
+    /** Remove os lembretes de revisão ainda pendentes da OS (revisão cancelada ou OS reaberta). */
+    void descartarLembretesPendentes(Long ordemServicoId);
+
+    /**
+     * Estado atual da OS, somente se ela ainda existe e está finalizada. Usado
+     * pelo lembrete agendado para não enviar dados desatualizados.
+     */
+    Optional<OrdemParaNotificar> buscarOrdemFinalizada(Long ordemServicoId);
 }

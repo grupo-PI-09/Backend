@@ -17,10 +17,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.security.SecureRandom;
+
 @Service
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
@@ -68,13 +71,17 @@ public class AuthService {
         String ip = httpRequest == null ? "desconhecido" : httpRequest.getRemoteAddr();
         String chave = emailNormalizado + "|" + ip;
 
-        // OWASP A07: bloqueio temporario apos sucessivas falhas.
-        if (loginAttemptService.estaBloqueado(chave)) {
+        // OWASP A07: bloqueio temporario apos sucessivas falhas, por email+IP e
+        // tambem so por email (com limite maior), para quem troca de IP a cada tentativa.
+        String chaveBloqueada = loginAttemptService.estaBloqueado(chave) ? chave
+                : loginAttemptService.estaBloqueadoPorEmail(emailNormalizado) ? emailNormalizado
+                : null;
+        if (chaveBloqueada != null) {
             log.warn("Login bloqueado por excesso de tentativas: '{}' (IP {})", emailNormalizado, ip);
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Muitas tentativas de login. Tente novamente em "
-                            + loginAttemptService.minutosRestantes(chave) + " minuto(s)"
+                            + loginAttemptService.minutosRestantes(chaveBloqueada) + " minuto(s)"
             );
         }
 
@@ -84,6 +91,7 @@ public class AuthService {
         // enumeracao de contas (OWASP A07).
         if (usuario == null || !passwordEncoder.matches(request.getSenha(), usuario.getSenha())) {
             loginAttemptService.registrarFalha(chave);
+            loginAttemptService.registrarFalha(emailNormalizado);
             log.warn("Falha de autenticacao para '{}' (IP {})", emailNormalizado, ip);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou senha inválidos");
         }
@@ -96,6 +104,7 @@ public class AuthService {
         }
 
         loginAttemptService.registrarSucesso(chave);
+        loginAttemptService.registrarSucesso(emailNormalizado);
         log.info("Login realizado por '{}' (IP {})", usuario.getEmail(), ip);
 
         return gerarResposta(usuario);
@@ -139,11 +148,15 @@ public class AuthService {
             base = base.substring(0, 40);
         }
 
-        String sufixo = String.valueOf(System.currentTimeMillis());
-        if (sufixo.length() > 6) {
-            sufixo = sufixo.substring(sufixo.length() - 6);
+        // Sufixo aleatorio conferido no banco: o antigo, derivado do relogio,
+        // se repetia a cada ~16 minutos e podia violar o unique da coluna.
+        for (int tentativa = 0; tentativa < 10; tentativa++) {
+            String login = base + "_" + String.format("%06d", RANDOM.nextInt(1_000_000));
+            if (!usuarioRepository.existsByLogin(login)) {
+                return login;
+            }
         }
 
-        return (base + "_" + sufixo).substring(0, Math.min(50, base.length() + 1 + sufixo.length()));
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível gerar um login único");
     }
 }

@@ -3,6 +3,7 @@ package oficina.mecanica.backendOficina.Service;
 import oficina.mecanica.backendOficina.DTO.AuthResponse;
 import oficina.mecanica.backendOficina.DTO.UsuarioAuthResponse;
 import oficina.mecanica.backendOficina.DTO.UsuarioUpdateRequest;
+import oficina.mecanica.backendOficina.Model.PerfilUsuario;
 import oficina.mecanica.backendOficina.Model.UsuarioModel;
 import oficina.mecanica.backendOficina.Repository.UsuarioRepository;
 import oficina.mecanica.backendOficina.Security.JwtService;
@@ -39,10 +40,22 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email já cadastrado");
         }
 
+        boolean trocaSenha = request.getSenha() != null && !request.getSenha().isBlank();
+        boolean trocaEmail = !emailNormalizado.equals(usuario.getEmail());
+
+        if (trocaSenha || trocaEmail) {
+            String senhaAtual = request.getSenhaAtual();
+            if (senhaAtual == null || senhaAtual.isBlank()
+                    || !passwordEncoder.matches(senhaAtual, usuario.getSenha())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Informe a senha atual correta para alterar email ou senha");
+            }
+        }
+
         usuario.setNome(request.getNome().trim());
         usuario.setEmail(emailNormalizado);
 
-        if (request.getSenha() != null && !request.getSenha().isBlank()) {
+        if (trocaSenha) {
             usuario.setSenha(passwordEncoder.encode(request.getSenha()));
         }
 
@@ -53,6 +66,15 @@ public class UsuarioService {
 
     public void excluirUsuarioAtual(UsuarioModel usuarioAutenticado) {
         UsuarioModel usuario = buscarUsuarioValido(usuarioAutenticado);
+
+        // Sem nenhum admin ativo ninguem mais cadastra usuarios, e o AdminBootstrap
+        // so roda com a tabela vazia.
+        if (usuario.getPerfil() == PerfilUsuario.admin && Boolean.TRUE.equals(usuario.getAtivo())
+                && usuarioRepository.countByPerfilAndAtivoTrue(PerfilUsuario.admin) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Você é o único administrador ativo e não pode excluir sua conta");
+        }
+
         usuarioRepository.delete(usuario);
     }
 

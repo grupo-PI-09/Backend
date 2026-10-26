@@ -1,5 +1,6 @@
 package oficina.mecanica.backendOficina.Repository;
 
+import oficina.mecanica.backendOficina.Model.PerfilUsuario;
 import oficina.mecanica.backendOficina.Model.UsuarioModel;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,4 +13,8 @@ public interface UsuarioRepository extends JpaRepository<UsuarioModel, Long> {
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndIdNot(String email, Long id);
+
+    boolean existsByLogin(String login);
+
+    long countByPerfilAndAtivoTrue(PerfilUsuario perfil);
 }
